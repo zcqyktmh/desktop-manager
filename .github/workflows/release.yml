@@ -35,8 +35,11 @@ jobs:
         shell: pwsh
         run: |
           $version = if ($env:GITHUB_REF_TYPE -eq 'tag') { $env:GITHUB_REF_NAME.TrimStart('v') } else { '0.0.0' }
-          $installRoots = @('C:\Program Files (x86)\Inno Setup', 'C:\Program Files\Inno Setup') | Where-Object { Test-Path -LiteralPath $_ }
-          $iscc = Get-ChildItem $installRoots -Filter 'ISCC.exe' -Recurse | Select-Object -First 1 -ExpandProperty FullName
+          $iscc = (Get-Command 'ISCC.exe' -ErrorAction SilentlyContinue).Source
+          if (-not $iscc) {
+            $installRoots = @('C:\Program Files (x86)\Inno Setup 6', 'C:\Program Files\Inno Setup 6', "$env:LOCALAPPDATA\Programs\Inno Setup 6") | Where-Object { Test-Path -LiteralPath $_ }
+            $iscc = Get-ChildItem $installRoots -Filter 'ISCC.exe' -Recurse | Select-Object -First 1 -ExpandProperty FullName
+          }
           if (-not $iscc) { throw 'Inno Setup compiler was not found on the Windows runner.' }
           & $iscc "/DMyAppVersion=$version" '.\installer\DesktopManager.iss'
           if ($LASTEXITCODE -ne 0) { throw "Inno Setup exited with code $LASTEXITCODE" }
