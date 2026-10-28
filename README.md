@@ -2,7 +2,7 @@
 
 Windows 桌面卡片管理工具。将应用、文件、文件夹和书签整理为可调整大小与位置的桌面卡片，并保留 Windows 原生桌面和任务栏。
 
-**Windows 安装包：** 打开 [Releases](../../releases/latest)，下载 `DesktopManager-Setup.exe` 并运行。安装到当前用户目录，不需要管理员权限，也不需要另装 .NET。安装程序可创建开始菜单快捷方式，并可选创建桌面快捷方式。
+**Windows 安装包：** 打开 [Releases](../../releases/latest)，下载 `DesktopManager-Setup.exe` 并运行。安装到当前用户目录，不需要管理员权限，也不需要另装 .NET。安装程序允许选择安装目录；安装选项中可勾选创建桌面快捷方式和“登录 Windows 时自动启动”。安装后也可在应用设置里开关自启动。
 
 ## 功能
 
