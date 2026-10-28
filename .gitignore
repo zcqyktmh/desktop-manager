@@ -1,0 +1,13 @@
+**/bin/
+**/obj/
+/publish/
+/publish-*-staging/
+/artifacts/
+/.vs/
+/.idea/
+*.user
+*.suo
+*.tmp
+*.log
+Thumbs.db
+Desktop.ini

@@ -1,0 +1,19 @@
+<Window x:Class="DesktopManager.BookmarkDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="添加网址" Width="440" SizeToContent="Height" ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner" Background="{DynamicResource SurfaceBackground}"
+        Foreground="{DynamicResource PrimaryText}" FontFamily="Segoe UI Variable, Microsoft YaHei UI, Segoe UI">
+    <Grid Margin="24">
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+        <TextBlock x:Name="DialogHeading" Text="添加网址" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,18" />
+        <StackPanel Grid.Row="1" Margin="0,0,0,13"><TextBlock Text="显示名称" FontSize="12" Foreground="{DynamicResource SecondaryText}" Margin="0,0,0,5"/><TextBox x:Name="NameBox" Height="34" Padding="8,5" FontSize="13"/></StackPanel>
+        <StackPanel Grid.Row="2" Margin="0,0,0,13"><TextBlock Text="网址" FontSize="12" Foreground="{DynamicResource SecondaryText}" Margin="0,0,0,5"/><TextBox x:Name="UrlBox" Height="34" Padding="8,5" FontSize="13"/></StackPanel>
+        <StackPanel Grid.Row="3" Margin="0,0,0,13"><TextBlock Text="文件夹（可选）" FontSize="12" Foreground="{DynamicResource SecondaryText}" Margin="0,0,0,5"/><TextBox x:Name="FolderBox" Height="34" Padding="8,5" FontSize="13"/></StackPanel>
+        <CheckBox x:Name="ShowOnHomeBox" Grid.Row="4" Content="添加后显示在首页" IsChecked="True" FontSize="12" Margin="0,2,0,18" />
+        <DockPanel Grid.Row="5" LastChildFill="False">
+            <TextBlock x:Name="ValidationText" Foreground="#B42318" FontSize="11" VerticalAlignment="Center" />
+            <StackPanel Orientation="Horizontal" DockPanel.Dock="Right"><Button Content="取消" Width="78" Height="33" Margin="0,0,8,0" Click="Cancel_Click"/><Button Content="保存" Width="78" Height="33" IsDefault="True" Background="#0866C6" Foreground="White" BorderBrush="#0866C6" Click="Save_Click"/></StackPanel>
+        </DockPanel>
+    </Grid>
+</Window>

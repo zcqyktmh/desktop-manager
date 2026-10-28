@@ -1,0 +1,243 @@
+<Window x:Class="DesktopManager.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="桌面管家设置" Width="720" Height="760" MinHeight="600" MaxHeight="820"
+        ResizeMode="NoResize" WindowStyle="None" AllowsTransparency="False"
+        WindowStartupLocation="CenterOwner" Background="#00F5F5F7"
+        Foreground="#202124" FontFamily="Segoe UI Variable, Microsoft YaHei UI, Segoe UI">
+    <Window.Resources>
+        <SolidColorBrush x:Key="TextPrimary" Color="#202124"/>
+        <SolidColorBrush x:Key="TextSecondary" Color="#777982"/>
+        <SolidColorBrush x:Key="LineBrush" Color="#70FFFFFF"/>
+        <SolidColorBrush x:Key="CardBrush" Color="#BFFFFFFF"/>
+        <Style x:Key="MacButton" TargetType="Button">
+            <Setter Property="Height" Value="36"/><Setter Property="Padding" Value="15,0"/>
+            <Setter Property="Background" Value="#F1F2F5"/><Setter Property="Foreground" Value="#26272B"/>
+            <Setter Property="BorderThickness" Value="0"/><Setter Property="FontSize" Value="12"/>
+            <Setter Property="Cursor" Value="Hand"/><Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">
+                <Border x:Name="Chrome" Background="{TemplateBinding Background}" CornerRadius="9" Padding="{TemplateBinding Padding}">
+                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Border>
+                <ControlTemplate.Triggers>
+                    <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Chrome" Property="Background" Value="#E7E8EC"/></Trigger>
+                    <Trigger Property="IsPressed" Value="True"><Setter TargetName="Chrome" Property="Background" Value="#DCDDE2"/></Trigger>
+                    <Trigger Property="IsEnabled" Value="False"><Setter TargetName="Chrome" Property="Opacity" Value="0.45"/></Trigger>
+                </ControlTemplate.Triggers>
+            </ControlTemplate></Setter.Value></Setter>
+        </Style>
+        <Style x:Key="MacPrimaryButton" TargetType="Button" BasedOn="{StaticResource MacButton}">
+            <Setter Property="Background" Value="#3478F6"/><Setter Property="Foreground" Value="White"/>
+            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">
+                <Border x:Name="Chrome" Background="{TemplateBinding Background}" CornerRadius="9" Padding="{TemplateBinding Padding}">
+                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Border>
+                <ControlTemplate.Triggers>
+                    <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Chrome" Property="Background" Value="#2469E6"/></Trigger>
+                    <Trigger Property="IsPressed" Value="True"><Setter TargetName="Chrome" Property="Background" Value="#1858CC"/></Trigger>
+                </ControlTemplate.Triggers>
+            </ControlTemplate></Setter.Value></Setter>
+        </Style>
+        <Style x:Key="TrafficLight" TargetType="Button">
+            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">
+                <Ellipse x:Name="Light" Fill="{TemplateBinding Background}"/>
+                <ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Light" Property="Opacity" Value="0.78"/></Trigger><Trigger Property="IsPressed" Value="True"><Setter TargetName="Light" Property="Opacity" Value="0.58"/></Trigger></ControlTemplate.Triggers>
+            </ControlTemplate></Setter.Value></Setter>
+        </Style>
+        <Style x:Key="MacComboBoxItem" TargetType="ComboBoxItem">
+            <Setter Property="Padding" Value="10,7"/><Setter Property="Foreground" Value="#25262A"/>
+            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ComboBoxItem">
+                <Border x:Name="ItemChrome" Background="Transparent" CornerRadius="6" Padding="{TemplateBinding Padding}">
+                    <ContentPresenter/>
+                </Border>
+                <ControlTemplate.Triggers>
+                    <Trigger Property="IsHighlighted" Value="True"><Setter TargetName="ItemChrome" Property="Background" Value="#EEF2F9"/></Trigger>
+                    <Trigger Property="IsSelected" Value="True"><Setter TargetName="ItemChrome" Property="Background" Value="#E7EEFC"/></Trigger>
+                </ControlTemplate.Triggers>
+            </ControlTemplate></Setter.Value></Setter>
+        </Style>
+        <Style x:Key="MacComboBox" TargetType="ComboBox">
+            <Setter Property="Height" Value="36"/><Setter Property="Padding" Value="11,0"/><Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="#25262A"/><Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="ItemContainerStyle" Value="{StaticResource MacComboBoxItem}"/>
+            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ComboBox">
+                <Grid>
+                    <Border x:Name="Chrome" Background="#F1F2F5" CornerRadius="9"/>
+                    <ToggleButton Focusable="False" IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}" Background="Transparent" BorderThickness="0">
+                        <ToggleButton.Template><ControlTemplate TargetType="ToggleButton"><Border Background="Transparent" CornerRadius="9"/></ControlTemplate></ToggleButton.Template>
+                    </ToggleButton>
+                    <ContentPresenter Margin="11,0,32,0" VerticalAlignment="Center" Content="{TemplateBinding SelectionBoxItem}" IsHitTestVisible="False"/>
+                    <Path Data="M 0 0 L 4 4 L 8 0" Stroke="#747780" StrokeThickness="1.5" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,12,0" IsHitTestVisible="False"/>
+                    <Popup Name="PART_Popup" AllowsTransparency="True" IsOpen="{TemplateBinding IsDropDownOpen}" Placement="Bottom" PopupAnimation="Fade" Focusable="False">
+                        <Border Background="White" CornerRadius="10" Padding="5" Margin="0,5,0,0" BorderBrush="#E4E5E9" BorderThickness="1">
+                            <Border.Effect><DropShadowEffect BlurRadius="16" ShadowDepth="4" Opacity="0.14" Color="#000000"/></Border.Effect>
+                            <ScrollViewer MaxHeight="240" SnapsToDevicePixels="True"><ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained"/></ScrollViewer>
+                        </Border>
+                    </Popup>
+                </Grid>
+                <ControlTemplate.Triggers>
+                    <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Chrome" Property="Background" Value="#E9EAF0"/></Trigger>
+                    <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.5"/></Trigger>
+                </ControlTemplate.Triggers>
+            </ControlTemplate></Setter.Value></Setter>
+        </Style>
+        <Style x:Key="MacSlider" TargetType="Slider">
+            <Setter Property="Height" Value="24"/><Setter Property="Foreground" Value="#3478F6"/>
+            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Slider">
+                <Grid Height="24" VerticalAlignment="Center">
+                    <Track x:Name="PART_Track" IsDirectionReversed="False" Minimum="{TemplateBinding Minimum}" Maximum="{TemplateBinding Maximum}" Value="{TemplateBinding Value}">
+                        <Track.DecreaseRepeatButton><RepeatButton Command="{x:Static Slider.DecreaseLarge}" Focusable="False" IsTabStop="False" Background="#3478F6" Height="4"/></Track.DecreaseRepeatButton>
+                        <Track.IncreaseRepeatButton><RepeatButton Command="{x:Static Slider.IncreaseLarge}" Focusable="False" IsTabStop="False" Background="#D9DBE1" Height="4"/></Track.IncreaseRepeatButton>
+                        <Track.Thumb><Thumb Width="18" Height="18" Background="White" BorderBrush="#D6D8DE" BorderThickness="1">
+                            <Thumb.Template><ControlTemplate TargetType="Thumb"><Border Background="White" BorderBrush="#D2D4DB" BorderThickness="1" CornerRadius="9"><Border.Effect><DropShadowEffect BlurRadius="3" ShadowDepth="1" Opacity="0.16"/></Border.Effect></Border></ControlTemplate></Thumb.Template>
+                        </Thumb></Track.Thumb>
+                    </Track>
+                </Grid>
+            </ControlTemplate></Setter.Value></Setter>
+        </Style>
+        <Style x:Key="MacSwitch" TargetType="CheckBox">
+            <Setter Property="Width" Value="42"/><Setter Property="Height" Value="25"/><Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="CheckBox">
+                <Grid Width="42" Height="25">
+                    <Border x:Name="Track" Background="#D7D9DF" CornerRadius="13"/>
+                    <Ellipse x:Name="Knob" Width="21" Height="21" Fill="White" HorizontalAlignment="Left" Margin="2">
+                        <Ellipse.Effect><DropShadowEffect BlurRadius="3" ShadowDepth="1" Opacity="0.16"/></Ellipse.Effect>
+                    </Ellipse>
+                </Grid>
+                <ControlTemplate.Triggers>
+                    <Trigger Property="IsChecked" Value="True"><Setter TargetName="Track" Property="Background" Value="#34C759"/><Setter TargetName="Knob" Property="HorizontalAlignment" Value="Right"/></Trigger>
+                    <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Track" Property="Opacity" Value="0.88"/></Trigger>
+                    <Trigger Property="IsEnabled" Value="False"><Setter TargetName="Track" Property="Opacity" Value="0.45"/></Trigger>
+                </ControlTemplate.Triggers>
+            </ControlTemplate></Setter.Value></Setter>
+        </Style>
+    </Window.Resources>
+    <Border Background="#C8F5F5F7" BorderBrush="#A8FFFFFF" BorderThickness="1" CornerRadius="14" SnapsToDevicePixels="True">
+        <Border.Effect><DropShadowEffect BlurRadius="28" ShadowDepth="8" Opacity="0.22" Color="#000000"/></Border.Effect>
+        <Grid>
+            <Grid.RowDefinitions><RowDefinition Height="48"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+            <Border x:Name="TitleBar" Background="#B8F5F5F7" CornerRadius="14,14,0,0" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+                <Grid Margin="16,0">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Left">
+                        <Button x:Name="CloseWindowButton" Style="{StaticResource TrafficLight}" Width="13" Height="13" Margin="0,0,8,0" Padding="0" Background="#FF5F57" ToolTip="关闭" Click="CloseWindow_Click"/>
+                        <Button x:Name="MinimizeWindowButton" Style="{StaticResource TrafficLight}" Width="13" Height="13" Margin="0,0,8,0" Padding="0" Background="#FEBC2E" ToolTip="最小化" Click="MinimizeWindow_Click"/>
+                        <Button x:Name="ZoomWindowButton" Style="{StaticResource TrafficLight}" Width="13" Height="13" Padding="0" Background="#28C840" ToolTip="放大" Click="ZoomWindow_Click"/>
+                    </StackPanel>
+                    <TextBlock Text="桌面管家设置" FontSize="12" FontWeight="SemiBold" Foreground="#62636A" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                </Grid>
+            </Border>
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel Margin="34,22,34,28">
+                    <TextBlock Text="设置" FontSize="25" FontWeight="Bold" Foreground="#202124"/>
+                    <TextBlock Text="根据你的使用习惯自定义桌面体验。" FontSize="12" Foreground="#777982" Margin="0,5,0,22"/>
+
+                    <ToggleButton x:Name="AppearanceSectionToggle" Tag="外观与图标" Content="⌄  外观与图标" IsChecked="True" FontSize="12" FontWeight="SemiBold" Foreground="#858791" Background="Transparent" BorderThickness="0" HorizontalContentAlignment="Left" Padding="2,0" Margin="2,0,0,9" Click="SectionToggle_Click"/>
+                    <Border x:Name="AppearanceSectionCard" Background="{StaticResource CardBrush}" CornerRadius="12" Padding="16,4">
+                        <StackPanel>
+                            <Grid MinHeight="58"><Grid.ColumnDefinitions><ColumnDefinition Width="38"/><ColumnDefinition Width="*"/><ColumnDefinition Width="170"/></Grid.ColumnDefinitions>
+                                <Border Width="30" Height="30" Background="#E9EFFB" CornerRadius="9" VerticalAlignment="Center"><TextBlock Text="◐" Foreground="#3478F6" FontSize="17" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="外观" FontSize="12" FontWeight="Medium"/><TextBlock Text="跟随 Windows、浅色或深色" FontSize="10.5" Foreground="#858791" Margin="0,3,0,0"/></StackPanel>
+                                <ComboBox x:Name="ThemePicker" Grid.Column="2" Width="160" Style="{StaticResource MacComboBox}" VerticalAlignment="Center"/>
+                            </Grid>
+                            <Border Height="1" Background="{StaticResource LineBrush}"/>
+                            <Grid MinHeight="65"><Grid.ColumnDefinitions><ColumnDefinition Width="38"/><ColumnDefinition Width="*"/><ColumnDefinition Width="220"/></Grid.ColumnDefinitions>
+                                <Border Width="30" Height="30" Background="#F1EBFA" CornerRadius="9" VerticalAlignment="Center"><TextBlock Text="▦" Foreground="#8C62C8" FontSize="17" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="桌面图标大小" FontSize="12" FontWeight="Medium"/><TextBlock x:Name="IconSizeDescription" FontSize="10.5" Foreground="#858791" Margin="0,3,0,0"/></StackPanel>
+                                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center"><Slider x:Name="IconSizeSlider" Width="155" Minimum="32" Maximum="80" TickFrequency="4" IsSnapToTickEnabled="True" Style="{StaticResource MacSlider}"/><TextBlock x:Name="IconSizeValue" Width="52" Margin="10,0,0,0" FontSize="11" Foreground="#656770" VerticalAlignment="Center"/></StackPanel>
+                            </Grid>
+                            <Border Height="1" Background="{StaticResource LineBrush}"/>
+                            <Grid MinHeight="72"><Grid.ColumnDefinitions><ColumnDefinition Width="38"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <Border Width="30" Height="30" Background="#E8F3FA" CornerRadius="9" VerticalAlignment="Center"><TextBlock Text="▧" Foreground="#3989B8" FontSize="17" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,8"><TextBlock Text="桌面壁纸" FontSize="12" FontWeight="Medium"/><TextBlock x:Name="WallpaperPathText" FontSize="10.5" Foreground="#858791" Margin="0,3,8,0" TextTrimming="CharacterEllipsis" ToolTip="壁纸文件路径"/></StackPanel>
+                                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center"><Button x:Name="WallpaperLibraryButton" Content="壁纸库…" Style="{StaticResource MacPrimaryButton}" Height="33" Padding="11,0"/><Button x:Name="ChooseWallpaperButton" Content="本地图片" Style="{StaticResource MacButton}" Height="33" Padding="11,0" Margin="6,0,0,0"/><Button x:Name="ResetWallpaperButton" Content="恢复系统" Style="{StaticResource MacButton}" Height="33" Padding="11,0" Margin="6,0,0,0"/></StackPanel>
+                            </Grid>
+                            <Border Height="1" Background="{StaticResource LineBrush}"/>
+                            <Grid MinHeight="76"><Grid.ColumnDefinitions><ColumnDefinition Width="38"/><ColumnDefinition Width="*"/><ColumnDefinition Width="135"/><ColumnDefinition Width="124"/><ColumnDefinition Width="48"/></Grid.ColumnDefinitions>
+                                <Border Width="30" Height="30" Background="#EEF5E9" CornerRadius="9" VerticalAlignment="Center"><TextBlock Text="↻" Foreground="#57A14B" FontSize="19" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="自动更换壁纸" FontSize="12" FontWeight="Medium"/><TextBlock Text="按风格和时间间隔自动轮换" FontSize="10.5" Foreground="#858791" Margin="0,3,0,0"/></StackPanel>
+                                <ComboBox x:Name="AutoWallpaperStylePicker" Grid.Column="2" Width="126" Style="{StaticResource MacComboBox}" VerticalAlignment="Center" ToolTip="选择自动轮换的壁纸风格"/>
+                                <ComboBox x:Name="AutoWallpaperIntervalPicker" Grid.Column="3" Width="116" Style="{StaticResource MacComboBox}" VerticalAlignment="Center" ToolTip="选择自动更换间隔"/>
+                                <CheckBox x:Name="AutoWallpaperCheck" Grid.Column="4" Style="{StaticResource MacSwitch}" VerticalAlignment="Center" ToolTip="启用或暂停自动更换壁纸"/>
+                            </Grid>
+                            <Grid x:Name="CustomWallpaperQueryRow" MinHeight="56" Visibility="Collapsed">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="38"/><ColumnDefinition Width="*"/><ColumnDefinition Width="250"/></Grid.ColumnDefinitions>
+                                <Border Width="30" Height="30" Background="#F3EDF8" CornerRadius="9" VerticalAlignment="Center"><TextBlock Text="⌕" Foreground="#8C62C8" FontSize="20" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="自定义风格关键词" FontSize="12" FontWeight="Medium"/><TextBlock Text="例如：snowy forest 或 mountain lake" FontSize="10" Foreground="#858791" Margin="0,3,0,0"/></StackPanel>
+                                <Border Grid.Column="2" Background="#F1F2F5" CornerRadius="9" Padding="9,0" VerticalAlignment="Center"><TextBox x:Name="AutoWallpaperCustomQueryBox" Height="34" Background="Transparent" BorderThickness="0" Foreground="#25262A" FontSize="11" VerticalContentAlignment="Center" ToolTip="输入英文或中文壁纸主题关键词"/></Border>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <ToggleButton x:Name="SystemInfoSectionToggle" Tag="桌面信息卡片" Content="⌄  桌面信息卡片" IsChecked="True" FontSize="12" FontWeight="SemiBold" Foreground="#858791" Background="Transparent" BorderThickness="0" HorizontalContentAlignment="Left" Padding="2,0" Margin="2,19,0,9" Click="SectionToggle_Click"/>
+                    <Border x:Name="SystemInfoSectionCard" Background="{StaticResource CardBrush}" CornerRadius="12" Padding="16,6">
+                        <StackPanel>
+                            <Grid MinHeight="62"><Grid.ColumnDefinitions><ColumnDefinition Width="38"/><ColumnDefinition Width="*"/><ColumnDefinition Width="48"/></Grid.ColumnDefinitions>
+                                <Border Width="30" Height="30" Background="#E8EFFB" CornerRadius="9" VerticalAlignment="Center"><TextBlock Text="◷" Foreground="#3478F6" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="显示系统状态卡片" FontSize="12" FontWeight="Medium"/><TextBlock Text="卡片可在桌面上拖动并调整大小" FontSize="10.5" Foreground="#858791" Margin="0,3,0,0"/></StackPanel>
+                                <CheckBox x:Name="SystemInfoCardCheck" Grid.Column="2" Style="{StaticResource MacSwitch}" VerticalAlignment="Center" ToolTip="在桌面显示或隐藏系统状态卡片"/>
+                            </Grid>
+                            <Border Height="1" Background="{StaticResource LineBrush}"/>
+                            <TextBlock Text="选择要显示的项目" FontSize="10.5" Foreground="#777982" Margin="0,9,0,5"/>
+                            <Grid Margin="0,0,0,7"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                <StackPanel><CheckBox x:Name="ShowCpuCheck" Content="CPU 使用率" FontSize="11" Margin="0,4"/><CheckBox x:Name="ShowMemoryCheck" Content="内存占用" FontSize="11" Margin="0,4"/><CheckBox x:Name="ShowCpuTemperatureCheck" Content="CPU 温度" FontSize="11" Margin="0,4"/></StackPanel>
+                                <StackPanel Grid.Column="1"><CheckBox x:Name="ShowGpuTemperatureCheck" Content="GPU 温度" FontSize="11" Margin="0,4"/><CheckBox x:Name="ShowSystemDriveCheck" Content="系统盘占用" FontSize="11" Margin="0,4"/></StackPanel>
+                            </Grid>
+                            <TextBlock Text="传感器权限或硬件不支持时，温度会显示“不可用”。" FontSize="9.5" Foreground="#858791" Margin="0,0,0,5"/>
+                        </StackPanel>
+                    </Border>
+
+                    <ToggleButton x:Name="WeatherSectionToggle" Tag="天气小组件" Content="⌄  天气小组件" IsChecked="True" FontSize="12" FontWeight="SemiBold" Foreground="#858791" Background="Transparent" BorderThickness="0" HorizontalContentAlignment="Left" Padding="2,0" Margin="2,19,0,9" Click="SectionToggle_Click"/>
+                    <Border x:Name="WeatherSectionCard" Background="{StaticResource CardBrush}" CornerRadius="12" Padding="16,7">
+                        <StackPanel>
+                            <Grid MinHeight="62"><Grid.ColumnDefinitions><ColumnDefinition Width="38"/><ColumnDefinition Width="*"/><ColumnDefinition Width="48"/></Grid.ColumnDefinitions>
+                                <Border Width="30" Height="30" Background="#E8F3FF" CornerRadius="9" VerticalAlignment="Center"><TextBlock Text="☀" Foreground="#3D8FE8" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="显示天气卡片" FontSize="12" FontWeight="Medium"/><TextBlock Text="显示当前天气、体感温度、湿度和风速" FontSize="10.5" Foreground="#858791" Margin="0,3,0,0"/></StackPanel>
+                                <CheckBox x:Name="WeatherCardCheck" Grid.Column="2" Style="{StaticResource MacSwitch}" VerticalAlignment="Center" ToolTip="启用或关闭桌面天气卡片"/>
+                            </Grid>
+                            <Border Height="1" Background="{StaticResource LineBrush}"/>
+                            <Grid MinHeight="55" Margin="0,3,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="38"/><ColumnDefinition Width="*"/><ColumnDefinition Width="220"/></Grid.ColumnDefinitions>
+                                <TextBlock Text="⌖" FontSize="19" Foreground="#6885A7" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="城市" FontSize="12" FontWeight="Medium"/><TextBlock Text="例如：上海、杭州、北京" FontSize="10.5" Foreground="#858791" Margin="0,3,0,0"/></StackPanel>
+                                <Border Grid.Column="2" Background="#F1F2F5" CornerRadius="9" Padding="9,0" VerticalAlignment="Center"><TextBox x:Name="WeatherCityBox" Height="34" Background="Transparent" BorderThickness="0" Foreground="#25262A" FontSize="11" VerticalContentAlignment="Center" ToolTip="输入城市名称以查询天气"/></Border>
+                            </Grid>
+                            <TextBlock Text="天气数据由 Open-Meteo 提供，输入的城市名称用于查询天气。" FontSize="9.5" Foreground="#858791" Margin="38,0,0,3"/>
+                        </StackPanel>
+                    </Border>
+
+                    <ToggleButton x:Name="BehaviorSectionToggle" Tag="启动与行为" Content="⌄  启动与行为" IsChecked="True" FontSize="12" FontWeight="SemiBold" Foreground="#858791" Background="Transparent" BorderThickness="0" HorizontalContentAlignment="Left" Padding="2,0" Margin="2,19,0,9" Click="SectionToggle_Click"/>
+                    <Border x:Name="BehaviorSectionCard" Background="{StaticResource CardBrush}" CornerRadius="12" Padding="16,4">
+                        <StackPanel>
+                            <Grid MinHeight="62"><Grid.ColumnDefinitions><ColumnDefinition Width="38"/><ColumnDefinition Width="*"/><ColumnDefinition Width="48"/></Grid.ColumnDefinitions>
+                                <Border Width="30" Height="30" Background="#FFF1E3" CornerRadius="9" VerticalAlignment="Center"><TextBlock Text="↗" Foreground="#E28B2F" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="登录 Windows 时启动" FontSize="12" FontWeight="Medium"/><TextBlock Text="登录后自动显示桌面层" FontSize="10.5" Foreground="#858791" Margin="0,3,0,0"/></StackPanel>
+                                <CheckBox x:Name="StartupCheck" Grid.Column="2" Style="{StaticResource MacSwitch}" VerticalAlignment="Center"/>
+                            </Grid>
+                            <Border Height="1" Background="{StaticResource LineBrush}"/>
+                            <Grid MinHeight="62"><Grid.ColumnDefinitions><ColumnDefinition Width="38"/><ColumnDefinition Width="*"/><ColumnDefinition Width="48"/></Grid.ColumnDefinitions>
+                                <Border Width="30" Height="30" Background="#E7F5EC" CornerRadius="9" VerticalAlignment="Center"><TextBlock Text="◉" Foreground="#31A85B" FontSize="17" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="关闭后保留托盘入口" FontSize="12" FontWeight="Medium"/><TextBlock Text="关闭桌面层时暂时显示 Windows 原生桌面图标" FontSize="10.5" Foreground="#858791" Margin="0,3,0,0"/></StackPanel>
+                                <CheckBox x:Name="TrayCheck" Grid.Column="2" Style="{StaticResource MacSwitch}" VerticalAlignment="Center"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <ToggleButton x:Name="DataSectionToggle" Tag="数据" Content="⌄  数据" IsChecked="True" FontSize="12" FontWeight="SemiBold" Foreground="#858791" Background="Transparent" BorderThickness="0" HorizontalContentAlignment="Left" Padding="2,0" Margin="2,19,0,9" Click="SectionToggle_Click"/>
+                    <Border x:Name="DataSectionCard" Background="{StaticResource CardBrush}" CornerRadius="12" Padding="16,10">
+                        <Grid MinHeight="45"><Grid.ColumnDefinitions><ColumnDefinition Width="38"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <Border Width="30" Height="30" Background="#E9F3FB" CornerRadius="9" VerticalAlignment="Center"><TextBlock Text="⇧" Foreground="#3C92C8" FontSize="17" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="本地数据" FontSize="12" FontWeight="Medium"/><TextBlock Text="收藏和桌面分组仅保存在此设备" FontSize="10.5" Foreground="#858791" Margin="0,3,0,0"/></StackPanel>
+                            <Button x:Name="BackupButton" Grid.Column="2" Content="导出 JSON 备份" Style="{StaticResource MacButton}" Height="33"/>
+                        </Grid>
+                    </Border>
+
+                </StackPanel>
+            </ScrollViewer>
+            <Border Grid.Row="2" Background="#DDF5F5F7" BorderBrush="#60FFFFFF" BorderThickness="0,1,0,0" Padding="34,12">
+                <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                    <Button Content="退出并恢复 Windows 桌面" Style="{StaticResource MacButton}" Height="35" HorizontalAlignment="Left" Padding="13,0" Click="Exit_Click"/>
+                    <Button Grid.Column="1" Content="完成" Style="{StaticResource MacPrimaryButton}" Width="92" Height="35" IsDefault="True" Click="Done_Click"/>
+                </Grid>
+            </Border>
+        </Grid>
+    </Border>
+</Window>

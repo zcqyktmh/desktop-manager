@@ -1,0 +1,23 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ApplicationIcon>Assets\desktop-mascot.ico</ApplicationIcon>
+    <AssemblyName>桌面管家</AssemblyName>
+    <RootNamespace>DesktopManager</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Management" Version="10.0.14" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\desktop-mascot.png" />
+  </ItemGroup>
+
+</Project>
