@@ -25,11 +25,18 @@ jobs:
         shell: pwsh
         run: dotnet publish .\src\DesktopManager\DesktopManager.csproj -c Release -r win-x64 --self-contained true -p:DebugType=None -p:DebugSymbols=false -o .\artifacts\publish
 
+      - name: Install Inno Setup 6
+        shell: pwsh
+        run: |
+          winget install --id JRSoftware.InnoSetup -e --version 6.7.3 --silent --accept-package-agreements --accept-source-agreements
+          if ($LASTEXITCODE -ne 0) { throw "winget failed to install Inno Setup: $LASTEXITCODE" }
+
       - name: Build installer
         shell: pwsh
         run: |
           $version = if ($env:GITHUB_REF_TYPE -eq 'tag') { $env:GITHUB_REF_NAME.TrimStart('v') } else { '0.0.0' }
-          $iscc = Get-ChildItem 'C:\Program Files (x86)\Inno Setup' -Filter 'ISCC.exe' -Recurse | Select-Object -First 1 -ExpandProperty FullName
+          $installRoots = @('C:\Program Files (x86)\Inno Setup', 'C:\Program Files\Inno Setup') | Where-Object { Test-Path -LiteralPath $_ }
+          $iscc = Get-ChildItem $installRoots -Filter 'ISCC.exe' -Recurse | Select-Object -First 1 -ExpandProperty FullName
           if (-not $iscc) { throw 'Inno Setup compiler was not found on the Windows runner.' }
           & $iscc "/DMyAppVersion=$version" '.\installer\DesktopManager.iss'
           if ($LASTEXITCODE -ne 0) { throw "Inno Setup exited with code $LASTEXITCODE" }

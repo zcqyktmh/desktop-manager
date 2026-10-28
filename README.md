@@ -30,9 +30,10 @@ Windows 桌面卡片管理工具。将应用、文件、文件夹和书签整理
 
 ## 从源码构建
 
-需要 Windows、.NET 10 SDK 和 Inno Setup 6 或更新版本。
+需要 Windows、.NET 10 SDK 和 Inno Setup 6.7.3 或更新版本。可以用官方 winget 包安装 Inno Setup：
 
 ```powershell
+winget install --id JRSoftware.InnoSetup -e
 dotnet publish .\src\DesktopManager\DesktopManager.csproj `
   -c Release -r win-x64 --self-contained true `
   -p:DebugType=None -p:DebugSymbols=false `
