@@ -288,10 +288,6 @@ public partial class MainWindow : Window
             if (group == "常用网址")
             {
                 layout = _state.BookmarkCardLayout;
-                layout.Width = Math.Clamp(layout.Width, 260, Math.Max(260, groupCanvas.Width - 20));
-                layout.Height = Math.Clamp(layout.Height, 150, groupCanvas.Height);
-                layout.Left = Math.Clamp(layout.Left, 0, Math.Max(0, groupCanvas.Width - layout.Width));
-                layout.Top = Math.Clamp(layout.Top, 0, Math.Max(0, groupCanvas.Height - layout.Height));
             }
             var panel = CreateGroupPanel(group, groupItems, groups, layout, groupCanvas, groupBookmarks, isBookmarkCard: group == "常用网址");
             Canvas.SetLeft(panel, layout.Left);
@@ -305,15 +301,11 @@ public partial class MainWindow : Window
         if (_state.SystemInfoCardEnabled)
         {
             var infoLayout = _state.SystemInfoCardLayout;
-            infoLayout.Width = Math.Clamp(infoLayout.Width, 260, Math.Max(260, groupCanvas.Width - 12));
-            infoLayout.Height = Math.Clamp(infoLayout.Height, 150, Math.Max(150, groupCanvas.Height));
             if (infoLayout.Left < 0 || infoLayout.Top < 0)
             {
                 infoLayout.Left = Math.Max(0, groupCanvas.Width - infoLayout.Width - 20);
                 infoLayout.Top = 20;
             }
-            infoLayout.Left = Math.Clamp(infoLayout.Left, 0, Math.Max(0, groupCanvas.Width - infoLayout.Width));
-            infoLayout.Top = Math.Clamp(infoLayout.Top, 0, Math.Max(0, groupCanvas.Height - infoLayout.Height));
             var infoCard = CreateSystemInfoCard(groupCanvas, infoLayout);
             Canvas.SetLeft(infoCard, infoLayout.Left);
             Canvas.SetTop(infoCard, infoLayout.Top);
@@ -323,15 +315,11 @@ public partial class MainWindow : Window
         if (_state.WeatherCardEnabled)
         {
             var weatherLayout = _state.WeatherCardLayout;
-            weatherLayout.Width = Math.Clamp(weatherLayout.Width, 260, Math.Max(260, groupCanvas.Width - 12));
-            weatherLayout.Height = Math.Clamp(weatherLayout.Height, 175, Math.Max(175, groupCanvas.Height));
             if (weatherLayout.Left < 0 || weatherLayout.Top < 0)
             {
                 weatherLayout.Left = Math.Max(0, groupCanvas.Width - weatherLayout.Width - (_state.SystemInfoCardEnabled ? _state.SystemInfoCardLayout.Width + 40 : 20));
                 weatherLayout.Top = _state.SystemInfoCardEnabled ? Math.Max(0, _state.SystemInfoCardLayout.Top) : 20;
             }
-            weatherLayout.Left = Math.Clamp(weatherLayout.Left, 0, Math.Max(0, groupCanvas.Width - weatherLayout.Width));
-            weatherLayout.Top = Math.Clamp(weatherLayout.Top, 0, Math.Max(0, groupCanvas.Height - weatherLayout.Height));
             var weatherCard = CreateWeatherCard(groupCanvas, weatherLayout);
             Canvas.SetLeft(weatherCard, weatherLayout.Left);
             Canvas.SetTop(weatherCard, weatherLayout.Top);
@@ -352,25 +340,9 @@ public partial class MainWindow : Window
 
     private void ScaleLayoutsForCanvas(double width, double height)
     {
-        var previousWidth = _state.LayoutCanvasWidth;
-        var previousHeight = _state.LayoutCanvasHeight;
-        if (previousWidth > 0 && previousHeight > 0)
-        {
-            var scaleX = Math.Clamp(width / previousWidth, .5, 2);
-            var scaleY = Math.Clamp(height / previousHeight, .5, 2);
-            if (Math.Abs(scaleX - 1) > .02 || Math.Abs(scaleY - 1) > .02)
-            {
-                foreach (var layout in _state.GroupLayouts.Values
-                    .Concat([_state.BookmarkCardLayout, _state.SystemInfoCardLayout, _state.WeatherCardLayout]))
-                {
-                    layout.Left *= scaleX;
-                    layout.Top *= scaleY;
-                    layout.Width *= scaleX;
-                    layout.Height *= scaleY;
-                }
-            }
-        }
-
+        // Card geometry is stored in WPF device-independent pixels. Work area dimensions can
+        // vary briefly during logon while Explorer/taskbar and display settings settle. Do not
+        // rescale saved geometry here: doing so on each launch compounds small transient changes.
         _state.LayoutCanvasWidth = width;
         _state.LayoutCanvasHeight = height;
     }
@@ -397,10 +369,6 @@ public partial class MainWindow : Window
             };
             _state.GroupLayouts[name] = layout;
         }
-        layout.Width = Math.Clamp(layout.Width, 260, Math.Max(260, SystemParameters.WorkArea.Width - 90));
-        layout.Height = Math.Clamp(layout.Height, 130, canvasHeight);
-        layout.Left = Math.Clamp(layout.Left, 0, Math.Max(0, SystemParameters.WorkArea.Width - 68 - layout.Width));
-        layout.Top = Math.Clamp(layout.Top, 0, Math.Max(0, canvasHeight - layout.Height));
         return layout;
     }
 

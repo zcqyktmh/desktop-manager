@@ -2,6 +2,7 @@
 **/obj/
 /publish/
 /publish-*-staging/
+/publish-layoutfix/
 /artifacts/
 /.vs/
 /.idea/
