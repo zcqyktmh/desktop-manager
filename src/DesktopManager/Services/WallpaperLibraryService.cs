@@ -86,7 +86,7 @@ public static class WallpaperLibraryService
         var uri = new Uri(wallpaper.ImageUrl);
         var extension = Path.GetExtension(uri.AbsolutePath);
         if (string.IsNullOrWhiteSpace(extension) || extension.Length > 8) extension = ".jpg";
-        var directory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DesktopManager", "Wallpapers");
+        var directory = Path.Combine(AppDataStore.SharedDataDirectory, "Wallpapers");
         Directory.CreateDirectory(directory);
         var destination = Path.Combine(directory, Guid.NewGuid().ToString("N") + extension.ToLowerInvariant());
 

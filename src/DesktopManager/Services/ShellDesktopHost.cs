@@ -91,7 +91,7 @@ public sealed class ShellDesktopHost : IDisposable
     {
         try
         {
-            var path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DesktopManager", "desktop-host.log");
+            var path = Path.Combine(AppDataStore.SharedDataDirectory, "desktop-host.log");
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             File.AppendAllText(path, $"{DateTime.Now:O} {message}{Environment.NewLine}");
         }
