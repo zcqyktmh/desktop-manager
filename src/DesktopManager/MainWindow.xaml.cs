@@ -60,14 +60,20 @@ public partial class MainWindow : Window
 
     public MainWindow(bool startInTray = false)
     {
+        DesktopItemDiscovery.WriteStartupStage("ctor: enter");
         InitializeComponent();
+        DesktopItemDiscovery.WriteStartupStage("ctor: InitializeComponent done");
         RootSurface.PreviewKeyDown += OnRootPreviewKeyDown;
         _state = _store.Load();
+        DesktopItemDiscovery.WriteStartupStage($"ctor: state loaded groups=[{string.Join(",", _state.DesktopGroups)}] assignments={_state.DesktopAssignments.Count} dir={_store.DataDirectory}");
         _taskbarVisibility.EnsureVisible();
+        DesktopItemDiscovery.WriteStartupStage("ctor: taskbar visible");
         _state.StartWithWindows = _startup.IsEnabled();
         ThemeService.Apply(_state.Theme);
+        DesktopItemDiscovery.WriteStartupStage("ctor: theme applied");
 
         var workArea = SystemParameters.WorkArea;
+        DesktopItemDiscovery.WriteStartupStage($"ctor: workArea={workArea.Width}x{workArea.Height}");
         Width = Math.Max(800, workArea.Width);
         Height = Math.Max(600, workArea.Height);
         Left = workArea.Left;
@@ -75,11 +81,15 @@ public partial class MainWindow : Window
 
         var menu = CreateDesktopMenu();
         RootSurface.ContextMenu = menu;
+        DesktopItemDiscovery.WriteStartupStage("ctor: menu created");
         RenderDesktop();
+        DesktopItemDiscovery.WriteStartupStage("ctor: RenderDesktop done");
         SaveState();
+        DesktopItemDiscovery.WriteStartupStage("ctor: SaveState done");
         DesktopSurface.ContextMenu = menu;
         RootSurface.Background = CreateDesktopWallpaperBrush(_state.WallpaperPath);
         DesktopLayerReady = _shellHost.Attach(this);
+        DesktopItemDiscovery.WriteStartupStage($"ctor: attach={DesktopLayerReady}");
         if (!DesktopLayerReady)
         {
             MessageBox.Show("无法创建 Windows 桌面层。Windows 桌面图标保持原样，桌面管家已退出。", "桌面管家", MessageBoxButton.OK, MessageBoxImage.Warning);

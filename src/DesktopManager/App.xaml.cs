@@ -15,9 +15,11 @@ public partial class App : WpfApplication
 
     protected override void OnStartup(StartupEventArgs e)
     {
+        DesktopManager.Services.DesktopItemDiscovery.WriteStartupStage($"OnStartup: args=[{string.Join(" ", e.Args)}]");
         _instanceMutex = new Mutex(initiallyOwned: true, "Local\\DesktopManagerApp", out var createdNew);
         if (!createdNew)
         {
+            DesktopManager.Services.DesktopItemDiscovery.WriteStartupStage("OnStartup: another instance owns the mutex, shutting down");
             Shutdown();
             return;
         }
@@ -29,6 +31,7 @@ public partial class App : WpfApplication
         MainWindow = window;
         if (!window.DesktopLayerReady) Shutdown();
         else window.Show();
+        DesktopManager.Services.DesktopItemDiscovery.WriteStartupStage($"OnStartup: ready={window.DesktopLayerReady}");
     }
 
     protected override void OnExit(ExitEventArgs e)

@@ -79,4 +79,19 @@ public sealed class DesktopItemDiscovery
         }
         catch { }
     }
+
+    /// <summary>
+    /// Startup-stage tracing. The desktop layer runs before the UI is interactive, and an
+    /// early hang or exception leaves no UI trace, so each constructor step is recorded.
+    /// </summary>
+    public static void WriteStartupStage(string message)
+    {
+        try
+        {
+            var path = Path.Combine(AppDataStore.SharedDataDirectory, "desktop-startup.log");
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.AppendAllText(path, $"{DateTime.Now:O} {message}{Environment.NewLine}");
+        }
+        catch { }
+    }
 }
