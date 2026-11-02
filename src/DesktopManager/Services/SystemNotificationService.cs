@@ -81,6 +81,38 @@ public static class SystemNotificationService
         }
     }
 
+    public static async Task<bool> RemoveAsync(uint id)
+    {
+        try
+        {
+            var listener = Listener.Current;
+            var access = await listener.RequestAccessAsync();
+            if (access != AccessStatus.Allowed) return false;
+            listener.RemoveNotification(id);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    public static async Task<bool> ClearAllAsync()
+    {
+        try
+        {
+            var listener = Listener.Current;
+            var access = await listener.RequestAccessAsync();
+            if (access != AccessStatus.Allowed) return false;
+            listener.ClearNotifications();
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     [ComImport]
     [Guid("2e941141-7f97-4756-ba1d-9decde894a3d")]
     [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]

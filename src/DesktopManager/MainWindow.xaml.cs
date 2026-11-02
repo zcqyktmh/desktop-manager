@@ -242,8 +242,27 @@ public partial class MainWindow : Window
         var notificationList = new StackPanel();
         var notificationButton = OverlayButton("◉", () => { if (notificationPopup is not null) notificationPopup.IsOpen = !notificationPopup.IsOpen; }, "通知中心");
         status.Children.Add(notificationButton);
+        var clearAllButton = new TextBlock
+        {
+            Text = "清除全部",
+            FontSize = 11,
+            Foreground = SecondaryBrush(),
+            Cursor = Cursors.Hand,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        clearAllButton.MouseLeftButtonUp += async (_, _) =>
+        {
+            if (await SystemNotificationService.ClearAllAsync())
+            {
+                RefreshNotifications();
+            }
+        };
+        clearAllButton.MouseEnter += (_, _) => clearAllButton.Foreground = PrimaryBrush();
+        clearAllButton.MouseLeave += (_, _) => clearAllButton.Foreground = SecondaryBrush();
+        DockPanel.SetDock(clearAllButton, Dock.Right);
         void ShowNotificationMessage(string message)
         {
+            clearAllButton.Visibility = Visibility.Collapsed;
             notificationList.Children.Clear();
             notificationList.Children.Add(new TextBlock { Text = message, FontSize = 12, Foreground = SecondaryBrush(), HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 22, 0, 10), TextWrapping = TextWrapping.Wrap });
         }
@@ -260,10 +279,41 @@ public partial class MainWindow : Window
             if (notifications.Count == 0)
             {
                 ShowNotificationMessage("暂时没有新通知");
+                clearAllButton.Visibility = Visibility.Collapsed;
                 return;
             }
+            clearAllButton.Visibility = Visibility.Visible;
             foreach (var item in notifications)
             {
+                var info = new StackPanel
+                {
+                    Children =
+                    {
+                        new TextBlock { Text = $"{item.AppName} · {item.Time:HH:mm}", FontSize = 10, Foreground = SecondaryBrush() },
+                        new TextBlock { Text = item.Title, FontSize = 12.5, FontWeight = FontWeights.SemiBold, Foreground = PrimaryBrush(), TextTrimming = TextTrimming.CharacterEllipsis, Margin = new Thickness(0, 3, 0, 0) },
+                        new TextBlock { Text = item.Body, FontSize = 11.5, Foreground = SecondaryBrush(), TextTrimming = TextTrimming.CharacterEllipsis, MaxHeight = 34, Margin = new Thickness(0, 2, 0, 0) }
+                    }
+                };
+                var dismissButton = new TextBlock
+                {
+                    Text = "×",
+                    FontSize = 13,
+                    Foreground = SecondaryBrush(),
+                    Cursor = Cursors.Hand,
+                    VerticalAlignment = VerticalAlignment.Top,
+                    Margin = new Thickness(8, 0, 0, 0)
+                };
+                dismissButton.MouseLeftButtonUp += async (_, _) =>
+                {
+                    if (await SystemNotificationService.RemoveAsync(item.Id))
+                    {
+                        RefreshNotifications();
+                    }
+                };
+                dismissButton.MouseEnter += (_, _) => dismissButton.Foreground = PrimaryBrush();
+                dismissButton.MouseLeave += (_, _) => dismissButton.Foreground = SecondaryBrush();
+                Grid.SetColumn(info, 0);
+                Grid.SetColumn(dismissButton, 1);
                 var card = new Border
                 {
                     Padding = new Thickness(11),
@@ -271,16 +321,17 @@ public partial class MainWindow : Window
                     CornerRadius = new CornerRadius(12),
                     Background = new SolidColorBrush(Color.FromArgb(40, 255, 255, 255)),
                     Cursor = Cursors.Hand,
-                    Child = new StackPanel
+                    Child = new Grid
                     {
-                        Children =
+                        ColumnDefinitions =
                         {
-                            new TextBlock { Text = $"{item.AppName} · {item.Time:HH:mm}", FontSize = 10, Foreground = SecondaryBrush() },
-                            new TextBlock { Text = item.Title, FontSize = 12.5, FontWeight = FontWeights.SemiBold, Foreground = PrimaryBrush(), TextTrimming = TextTrimming.CharacterEllipsis, Margin = new Thickness(0, 3, 0, 0) },
-                            new TextBlock { Text = item.Body, FontSize = 11.5, Foreground = SecondaryBrush(), TextTrimming = TextTrimming.CharacterEllipsis, MaxHeight = 34, Margin = new Thickness(0, 2, 0, 0) }
+                            new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) },
+                            new ColumnDefinition { Width = GridLength.Auto }
                         }
                     }
                 };
+                ((Grid)card.Child).Children.Add(info);
+                ((Grid)card.Child).Children.Add(dismissButton);
                 card.MouseLeftButtonUp += (_, _) =>
                 {
                     notificationPopup?.IsOpen = false;
@@ -312,7 +363,14 @@ public partial class MainWindow : Window
                 {
                     Children =
                     {
-                        new TextBlock { Text = "通知中心", FontSize = 16, FontWeight = FontWeights.SemiBold, Foreground = PrimaryBrush() },
+                        new DockPanel
+                        {
+                            Children =
+                            {
+                                clearAllButton,
+                                new TextBlock { Text = "通知中心", FontSize = 16, FontWeight = FontWeights.SemiBold, Foreground = PrimaryBrush() }
+                            }
+                        },
                         new TextBlock { Text = DateTime.Now.ToString("yyyy年M月d日 dddd"), FontSize = 11, Foreground = SecondaryBrush(), Margin = new Thickness(0, 5, 0, 14) },
                         new Border { Height = 1, Background = new SolidColorBrush(Color.FromArgb(55, 110, 118, 130)) },
                         new ScrollViewer
