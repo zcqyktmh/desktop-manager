@@ -239,8 +239,58 @@ public partial class MainWindow : Window
         UpdateDesktopClock();
         status.Children.Add(_desktopClockText);
         Popup? notificationPopup = null;
+        var notificationList = new StackPanel();
         var notificationButton = OverlayButton("◉", () => { if (notificationPopup is not null) notificationPopup.IsOpen = !notificationPopup.IsOpen; }, "通知中心");
         status.Children.Add(notificationButton);
+        void ShowNotificationMessage(string message)
+        {
+            notificationList.Children.Clear();
+            notificationList.Children.Add(new TextBlock { Text = message, FontSize = 12, Foreground = SecondaryBrush(), HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 22, 0, 10), TextWrapping = TextWrapping.Wrap });
+        }
+        async void RefreshNotifications()
+        {
+            ShowNotificationMessage("正在读取通知…");
+            var notifications = await SystemNotificationService.ReadAsync();
+            if (notifications is null)
+            {
+                ShowNotificationMessage("无法读取系统通知，请在 Windows 设置中允许桌面管家读取通知。");
+                return;
+            }
+            notificationList.Children.Clear();
+            if (notifications.Count == 0)
+            {
+                ShowNotificationMessage("暂时没有新通知");
+                return;
+            }
+            foreach (var item in notifications)
+            {
+                var card = new Border
+                {
+                    Padding = new Thickness(11),
+                    Margin = new Thickness(0, 8, 0, 0),
+                    CornerRadius = new CornerRadius(12),
+                    Background = new SolidColorBrush(Color.FromArgb(40, 255, 255, 255)),
+                    Cursor = Cursors.Hand,
+                    Child = new StackPanel
+                    {
+                        Children =
+                        {
+                            new TextBlock { Text = $"{item.AppName} · {item.Time:HH:mm}", FontSize = 10, Foreground = SecondaryBrush() },
+                            new TextBlock { Text = item.Title, FontSize = 12.5, FontWeight = FontWeights.SemiBold, Foreground = PrimaryBrush(), TextTrimming = TextTrimming.CharacterEllipsis, Margin = new Thickness(0, 3, 0, 0) },
+                            new TextBlock { Text = item.Body, FontSize = 11.5, Foreground = SecondaryBrush(), TextTrimming = TextTrimming.CharacterEllipsis, MaxHeight = 34, Margin = new Thickness(0, 2, 0, 0) }
+                        }
+                    }
+                };
+                card.MouseLeftButtonUp += (_, _) =>
+                {
+                    notificationPopup?.IsOpen = false;
+                    SystemNotificationService.Activate(item.AppId);
+                };
+                card.MouseEnter += (_, _) => card.Background = new SolidColorBrush(Color.FromArgb(70, 255, 255, 255));
+                card.MouseLeave += (_, _) => card.Background = new SolidColorBrush(Color.FromArgb(40, 255, 255, 255));
+                notificationList.Children.Add(card);
+            }
+        }
         notificationPopup = new Popup
         {
             PlacementTarget = notificationButton,
@@ -250,6 +300,7 @@ public partial class MainWindow : Window
             Child = new Border
             {
                 Width = 300,
+                    MaxHeight = 520,
                 Margin = new Thickness(0, 8, 0, 0),
                 Padding = new Thickness(18),
                 CornerRadius = new CornerRadius(18),
@@ -264,11 +315,19 @@ public partial class MainWindow : Window
                         new TextBlock { Text = "通知中心", FontSize = 16, FontWeight = FontWeights.SemiBold, Foreground = PrimaryBrush() },
                         new TextBlock { Text = DateTime.Now.ToString("yyyy年M月d日 dddd"), FontSize = 11, Foreground = SecondaryBrush(), Margin = new Thickness(0, 5, 0, 14) },
                         new Border { Height = 1, Background = new SolidColorBrush(Color.FromArgb(55, 110, 118, 130)) },
-                        new TextBlock { Text = "暂时没有新通知", FontSize = 12, Foreground = SecondaryBrush(), HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 22, 0, 10) }
+                        new ScrollViewer
+                        {
+                            Content = notificationList,
+                            MaxHeight = 440,
+                            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+                            Margin = new Thickness(0, 12, 0, 0)
+                        }
                     }
                 }
             }
         };
+        notificationPopup.Opened += (_, _) => RefreshNotifications();
         status.Children.Add(notificationPopup);
         DockPanel.SetDock(status, Dock.Right);
         toolbar.Children.Add(status);
