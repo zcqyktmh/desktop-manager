@@ -268,10 +268,8 @@ public partial class MainWindow : Window
         };
         clearAllButton.MouseLeftButtonUp += async (_, _) =>
         {
-            if (await SystemNotificationService.ClearAllAsync())
-            {
-                RefreshNotifications();
-            }
+            await SystemNotificationService.ClearAllAsync();
+            RefreshNotifications();
         };
         clearAllButton.MouseEnter += (_, _) => clearAllButton.Foreground = PrimaryBrush();
         clearAllButton.MouseLeave += (_, _) => clearAllButton.Foreground = SecondaryBrush();

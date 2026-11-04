@@ -104,7 +104,14 @@ public static class SystemNotificationService
             var listener = Listener.Current;
             var access = await listener.RequestAccessAsync();
             if (access != AccessStatus.Allowed) return false;
-            listener.ClearNotifications();
+            var notifications = await listener.GetNotificationsAsync(NotificationKinds.Toast);
+            var ids = notifications.Select(notification => notification.Id).ToList();
+            if (ids.Count == 0) return true;
+            foreach (var id in ids)
+            {
+                try { listener.RemoveNotification(id); }
+                catch { }
+            }
             return true;
         }
         catch
