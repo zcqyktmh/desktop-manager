@@ -57,6 +57,8 @@ public partial class MainWindow : Window
     private int _groupZOrder;
     private string? _activeGroup;
     public bool DesktopLayerReady { get; }
+    private readonly List<System.IO.FileSystemWatcher> _desktopWatchers = new();
+    private System.Windows.Threading.DispatcherTimer? _desktopChangedTimer;
 
     public MainWindow(bool startInTray = false)
     {
@@ -116,6 +118,7 @@ public partial class MainWindow : Window
         ConfigureAutoWallpaperTimer();
         ConfigureSystemInfoTimer();
         ConfigureWeatherTimer();
+        StartDesktopWatcher();
         _desktopClockTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _desktopClockTimer.Tick += (_, _) => UpdateDesktopClock();
         _desktopClockTimer.Start();
@@ -130,6 +133,7 @@ public partial class MainWindow : Window
         menu.Items.Add(new Separator());
         menu.Items.Add(MenuItem("新建桌面分组", (_, _) => CreateGroup()));
         menu.Items.Add(MenuItem("按文件类别自动分组", (_, _) => AutoGroupByFileCategory()));
+        menu.Items.Add(MenuItem("粘贴到未分组", (_, _) => PasteIntoGroup(Clipboard.GetDataObject(), "未分组")));
         menu.Items.Add(MenuItem("刷新桌面项目", (_, _) => RefreshDesktop()));
         menu.Items.Add(new Separator());
         menu.Items.Add(MenuItem("设置…", (_, _) => ShowSettings()));
@@ -1256,8 +1260,9 @@ public partial class MainWindow : Window
 
     private void OnRootPreviewKeyDown(object sender, KeyEventArgs e)
     {
-        if (e.Key != Key.V || (Keyboard.Modifiers & ModifierKeys.Control) == 0 || string.IsNullOrWhiteSpace(_activeGroup)) return;
-        if (PasteIntoGroup(Clipboard.GetDataObject(), _activeGroup)) e.Handled = true;
+        if (e.Key != Key.V || (Keyboard.Modifiers & ModifierKeys.Control) == 0) return;
+        var targetGroup = string.IsNullOrWhiteSpace(_activeGroup) ? "未分组" : _activeGroup;
+        if (PasteIntoGroup(Clipboard.GetDataObject(), targetGroup)) e.Handled = true;
     }
 
     private bool PasteIntoGroup(IDataObject? data, string group)
@@ -1939,6 +1944,49 @@ public partial class MainWindow : Window
     {
         RenderDesktop();
         SaveState();
+    }
+
+    private void StartDesktopWatcher()
+    {
+        var userDesktop = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+        var commonDesktop = Environment.GetFolderPath(Environment.SpecialFolder.CommonDesktopDirectory);
+        _desktopChangedTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(600) };
+        _desktopChangedTimer.Tick += (_, _) =>
+        {
+            _desktopChangedTimer.Stop();
+            RefreshDesktop();
+        };
+        void Watch(string directory, string label)
+        {
+            if (string.IsNullOrWhiteSpace(directory) || !Directory.Exists(directory)) return;
+            try
+            {
+                var watcher = new System.IO.FileSystemWatcher(directory)
+                {
+                    IncludeSubdirectories = false,
+                    NotifyFilter = System.IO.NotifyFilters.FileName | System.IO.NotifyFilters.DirectoryName | System.IO.NotifyFilters.LastWrite,
+                    EnableRaisingEvents = true
+                };
+                watcher.Created += (_, _) => ScheduleDesktopRefresh();
+                watcher.Changed += (_, _) => ScheduleDesktopRefresh();
+                watcher.Renamed += (_, _) => ScheduleDesktopRefresh();
+                watcher.Deleted += (_, _) => ScheduleDesktopRefresh();
+                DesktopItemDiscovery.WriteStartupStage($"watcher: started for {label}='{directory}'");
+                _desktopWatchers.Add(watcher);
+            }
+            catch (Exception ex)
+            {
+                DesktopItemDiscovery.WriteStartupStage($"watcher: failed for {label}='{directory}' {ex.GetType().Name}: {ex.Message}");
+            }
+        }
+        void ScheduleDesktopRefresh()
+        {
+            if (_desktopChangedTimer is null) return;
+            _desktopChangedTimer.Stop();
+            _desktopChangedTimer.Start();
+        }
+        Watch(userDesktop, "user");
+        Watch(commonDesktop, "common");
     }
 
     private void AutoArrangeGroups()
