@@ -57,6 +57,7 @@ public partial class MainWindow : Window
     private int _groupZOrder;
     private string? _activeGroup;
     public bool DesktopLayerReady { get; }
+    private Border? _selectedTile;
     private readonly List<System.IO.FileSystemWatcher> _desktopWatchers = new();
     private System.Windows.Threading.DispatcherTimer? _desktopChangedTimer;
 
@@ -66,6 +67,15 @@ public partial class MainWindow : Window
         InitializeComponent();
         DesktopItemDiscovery.WriteStartupStage("ctor: InitializeComponent done");
         RootSurface.PreviewKeyDown += OnRootPreviewKeyDown;
+        RootSurface.PreviewMouseLeftButtonDown += (sender, e) =>
+        {
+            if (e.OriginalSource is DependencyObject source)
+            {
+                var tile = FindVisualAncestor<Border>(source);
+                if (tile is not null && tile.Tag is DesktopItem) return;
+            }
+            SelectTile(null);
+        };
         _state = _store.Load();
         DesktopItemDiscovery.WriteStartupStage($"ctor: state loaded groups=[{string.Join(",", _state.DesktopGroups)}] assignments={_state.DesktopAssignments.Count} dir={_store.DataDirectory}");
         _taskbarVisibility.EnsureVisible();
@@ -1179,9 +1189,13 @@ public partial class MainWindow : Window
         }
         tile.Child = content;
         tile.ToolTip = $"{item.Name}\n{item.Kind}\n{item.Path}";
-        tile.MouseEnter += (_, _) => tile.Background = HoverBrush();
-        tile.MouseLeave += (_, _) => tile.Background = Brushes.Transparent;
-        tile.MouseLeftButtonDown += (_, e) => { if (e.ClickCount == 2) OpenPath(item.Path); };
+        tile.MouseEnter += (_, _) => { if (tile != _selectedTile) tile.Background = HoverBrush(); };
+        tile.MouseLeave += (_, _) => tile.Background = tile == _selectedTile ? SelectedBrush() : Brushes.Transparent;
+        tile.MouseLeftButtonDown += (e, ev) =>
+        {
+            SelectTile(tile);
+            if (ev.ClickCount == 2) OpenPath(item.Path);
+        };
         var menu = CreateMacContextMenu();
         menu.Items.Add(MenuItem("打开", (_, _) => OpenPath(item.Path)));
         if (InstalledApplicationUninstaller.IsApplicationShortcut(item))
@@ -1211,6 +1225,24 @@ public partial class MainWindow : Window
     }
 
     private double GetDesktopTileWidth() => Math.Max(76, Math.Clamp(_state.DesktopIconSize, 32, 80) + 36);
+
+    private void SelectTile(Border? tile)
+    {
+        if (_selectedTile == tile) return;
+        if (_selectedTile is not null)
+        {
+            _selectedTile.Background = Brushes.Transparent;
+            _selectedTile.BorderBrush = Brushes.Transparent;
+            _selectedTile.BorderThickness = new Thickness(0);
+        }
+        _selectedTile = tile;
+        if (_selectedTile is not null)
+        {
+            _selectedTile.Background = SelectedBrush();
+            _selectedTile.BorderBrush = SelectedBorderBrush();
+            _selectedTile.BorderThickness = new Thickness(1.5);
+        }
+    }
 
     private double GetDesktopTileHeight() => Math.Clamp(_state.DesktopIconSize, 32, 80) + 40;
 
@@ -1836,6 +1868,13 @@ public partial class MainWindow : Window
         return null;
     }
 
+    private static T? FindVisualAncestor<T>(DependencyObject source) where T : DependencyObject
+    {
+        for (var current = source; current is not null; current = VisualTreeHelper.GetParent(current))
+            if (current is T match) return match;
+        return null;
+    }
+
     private void MoveIntoDesktopFolder(DesktopItem source, DesktopItem folder)
     {
         if (!Directory.Exists(folder.Path)) return;
@@ -2081,6 +2120,8 @@ public partial class MainWindow : Window
     private Brush ButtonBrush() => PanelBrush();
     private Brush DropTargetBrush() => new SolidColorBrush(IsDark() ? Color.FromArgb(210, 180, 205, 240) : Color.FromArgb(220, 67, 137, 220));
     private Brush HoverBrush() => new SolidColorBrush(IsDark() ? Color.FromArgb(145, 95, 99, 106) : Color.FromArgb(155, 255, 255, 255));
+    private Brush SelectedBrush() => new SolidColorBrush(IsDark() ? Color.FromArgb(173, 64, 120, 220) : Color.FromArgb(205, 67, 137, 220));
+    private Brush SelectedBorderBrush() => new SolidColorBrush(IsDark() ? Color.FromArgb(224, 120, 170, 250) : Color.FromArgb(235, 40, 110, 210));
     private Brush PressedBrush() => new SolidColorBrush(IsDark() ? Color.FromArgb(165, 92, 98, 108) : Color.FromArgb(185, 234, 239, 245));
     private DropShadowEffect CardShadow() => new() { BlurRadius = 12, ShadowDepth = 2, Direction = 270, Opacity = IsDark() ? .16 : .08, Color = Colors.Black };
     private static bool IsDark() => Application.Current.Resources["AppBackground"] is SolidColorBrush brush && brush.Color.R < 80;
