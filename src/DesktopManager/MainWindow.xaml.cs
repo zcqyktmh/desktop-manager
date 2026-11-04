@@ -57,7 +57,8 @@ public partial class MainWindow : Window
     private int _groupZOrder;
     private string? _activeGroup;
     public bool DesktopLayerReady { get; }
-    private Border? _selectedTile;
+    private readonly HashSet<Border> _selectedTiles = new();
+    private readonly HashSet<string> _selectedPaths = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<System.IO.FileSystemWatcher> _desktopWatchers = new();
     private System.Windows.Threading.DispatcherTimer? _desktopChangedTimer;
 
@@ -74,7 +75,7 @@ public partial class MainWindow : Window
                 var tile = FindVisualAncestor<Border>(source);
                 if (tile is not null && tile.Tag is DesktopItem) return;
             }
-            SelectTile(null);
+            ClearSelection();
         };
         _state = _store.Load();
         DesktopItemDiscovery.WriteStartupStage($"ctor: state loaded groups=[{string.Join(",", _state.DesktopGroups)}] assignments={_state.DesktopAssignments.Count} dir={_store.DataDirectory}");
@@ -245,6 +246,7 @@ public partial class MainWindow : Window
     private void RenderDesktop()
     {
         DesktopSurface.Children.Clear();
+        _selectedTiles.Clear();
         _systemInfoValues.Clear();
         _weatherCityValue = _weatherSymbolValue = _weatherTemperatureValue = _weatherDescriptionValue = _weatherDetailsValue = _weatherUpdatedValue = null;
         var toolbar = new DockPanel { Margin = new Thickness(0, 0, 0, 18), LastChildFill = false };
@@ -534,11 +536,15 @@ public partial class MainWindow : Window
             _activeGroup = name;
             if (e.Data.GetDataPresent(DesktopItemDragFormat) && e.Data.GetData(DesktopItemDragFormat) is string path)
             {
-                var draggedItem = _desktopItems.GetItems(_state).FirstOrDefault(item => string.Equals(item.Path, path, StringComparison.OrdinalIgnoreCase));
-                if (draggedItem is not null)
+                var allPaths = e.Data.GetDataPresent(DataFormats.FileDrop) && e.Data.GetData(DataFormats.FileDrop) is string[] multi && multi.Length > 0
+                    ? multi
+                    : new[] { path };
+                var targetFolder = e.OriginalSource is DependencyObject source ? FindDesktopFolderTile(source) : null;
+                var targetFolderItem = targetFolder?.Tag as DesktopItem;
+                foreach (var currentPath in allPaths)
                 {
-                    var targetFolder = e.OriginalSource is DependencyObject source ? FindDesktopFolderTile(source) : null;
-                    var targetFolderItem = targetFolder?.Tag as DesktopItem;
+                    var draggedItem = _desktopItems.GetItems(_state).FirstOrDefault(item => string.Equals(item.Path, currentPath, StringComparison.OrdinalIgnoreCase));
+                    if (draggedItem is null) continue;
                     if (targetFolderItem is not null && !string.Equals(targetFolderItem.Path, draggedItem.Path, StringComparison.OrdinalIgnoreCase))
                         MoveIntoDesktopFolder(draggedItem, targetFolderItem);
                     else
@@ -1113,9 +1119,12 @@ public partial class MainWindow : Window
             var current = e.GetPosition(tile);
             if (Math.Abs(current.X - dragStart.X) < SystemParameters.MinimumHorizontalDragDistance &&
                 Math.Abs(current.Y - dragStart.Y) < SystemParameters.MinimumVerticalDragDistance) return;
+            var dragPaths = _selectedTiles.Contains(tile) && _selectedPaths.Count > 1
+                ? SelectedItems().Select(target => target.Path).Distinct(StringComparer.OrdinalIgnoreCase).ToArray()
+                : new[] { item.Path };
             var payload = new DataObject();
-            payload.SetData(DesktopItemDragFormat, item.Path);
-            payload.SetData(DataFormats.FileDrop, new[] { item.Path });
+            payload.SetData(DesktopItemDragFormat, dragPaths[0]);
+            payload.SetData(DataFormats.FileDrop, dragPaths);
             DragDrop.DoDragDrop(tile, payload, DragDropEffects.Move);
         };
         if (Directory.Exists(item.Path))
@@ -1189,15 +1198,18 @@ public partial class MainWindow : Window
         }
         tile.Child = content;
         tile.ToolTip = $"{item.Name}\n{item.Kind}\n{item.Path}";
-        tile.MouseEnter += (_, _) => { if (tile != _selectedTile) tile.Background = HoverBrush(); };
-        tile.MouseLeave += (_, _) => tile.Background = tile == _selectedTile ? SelectedBrush() : Brushes.Transparent;
+        tile.MouseEnter += (_, _) => { if (!_selectedTiles.Contains(tile)) tile.Background = HoverBrush(); };
+        tile.MouseLeave += (_, _) => tile.Background = _selectedTiles.Contains(tile) ? SelectedBrush() : Brushes.Transparent;
         tile.MouseLeftButtonDown += (e, ev) =>
         {
-            SelectTile(tile);
+            var toggle = (Keyboard.Modifiers & ModifierKeys.Control) != 0;
+            if (toggle) ToggleTileSelection(tile, item);
+            else if (_selectedTiles.Count > 1 && _selectedTiles.Contains(tile)) { /* keep multi-select on plain click of an already-selected tile */ }
+            else SelectTile(tile);
             if (ev.ClickCount == 2) OpenPath(item.Path);
         };
         var menu = CreateMacContextMenu();
-        menu.Items.Add(MenuItem("打开", (_, _) => OpenPath(item.Path)));
+        menu.Items.Add(MenuItem("打开", (_, _) => OpenSelectedOr(item)));
         if (InstalledApplicationUninstaller.IsApplicationShortcut(item))
         {
             menu.Items.Add(new Separator());
@@ -1208,40 +1220,104 @@ public partial class MainWindow : Window
         {
             var destination = group;
             var move = new MenuItem { Header = group, IsCheckable = true, IsChecked = string.Equals(group, item.Group, StringComparison.CurrentCultureIgnoreCase) };
-            move.Click += (_, _) => MoveDesktopItem(item, destination);
+            move.Click += (_, _) =>
+            {
+                foreach (var selected in SelectedItems()) MoveDesktopItem(selected, destination);
+                ClearSelection();
+            };
             moveMenu.Items.Add(move);
         }
         menu.Items.Add(moveMenu);
         menu.Items.Add(new Separator());
         menu.Items.Add(MenuItem("粘贴到此分组", (_, _) => PasteIntoGroup(Clipboard.GetDataObject(), item.Group)));
-        menu.Items.Add(MenuItem("从分组移除", (_, _) => MoveDesktopItem(item, "未分组")));
+        menu.Items.Add(MenuItem("从分组移除", (_, _) =>
+        {
+            foreach (var selected in SelectedItems()) MoveDesktopItem(selected, "未分组");
+            ClearSelection();
+        }));
         menu.Items.Add(new Separator());
         if (item.IsTaskbarShortcut)
             menu.Items.Add(MenuItem("从桌面隐藏", (_, _) => HideTaskbarItem(item)));
         else
-            menu.Items.Add(MenuItem("删除", (_, _) => DeleteDesktopItem(item)));
+            menu.Items.Add(MenuItem("删除", (_, _) =>
+            {
+                var targets = SelectedItems();
+                if (!targets.Any(t => string.Equals(t.Path, item.Path, StringComparison.OrdinalIgnoreCase)))
+                    targets = new[] { item };
+                DeleteDesktopItems(targets);
+            }));
         tile.ContextMenu = menu;
+        if (_selectedPaths.Contains(DesktopItemDiscovery.Normalize(item.Path)))
+        {
+            _selectedTiles.Add(tile);
+            SetTileSelected(tile, true);
+        }
         return tile;
     }
 
     private double GetDesktopTileWidth() => Math.Max(76, Math.Clamp(_state.DesktopIconSize, 32, 80) + 36);
 
-    private void SelectTile(Border? tile)
+    private void SetTileSelected(Border tile, bool selected)
     {
-        if (_selectedTile == tile) return;
-        if (_selectedTile is not null)
+        if (selected)
         {
-            _selectedTile.Background = Brushes.Transparent;
-            _selectedTile.BorderBrush = Brushes.Transparent;
-            _selectedTile.BorderThickness = new Thickness(0);
+            tile.Background = SelectedBrush();
+            tile.BorderBrush = SelectedBorderBrush();
+            tile.BorderThickness = new Thickness(1.5);
         }
-        _selectedTile = tile;
-        if (_selectedTile is not null)
+        else
         {
-            _selectedTile.Background = SelectedBrush();
-            _selectedTile.BorderBrush = SelectedBorderBrush();
-            _selectedTile.BorderThickness = new Thickness(1.5);
+            tile.Background = Brushes.Transparent;
+            tile.BorderBrush = Brushes.Transparent;
+            tile.BorderThickness = new Thickness(0);
         }
+    }
+
+    private void SelectTile(Border tile)
+    {
+        ClearSelection();
+        _selectedTiles.Add(tile);
+        if (tile.Tag is DesktopItem it) _selectedPaths.Add(DesktopItemDiscovery.Normalize(it.Path));
+        SetTileSelected(tile, true);
+    }
+
+    private void ToggleTileSelection(Border tile, DesktopItem item)
+    {
+        var key = DesktopItemDiscovery.Normalize(item.Path);
+        if (_selectedTiles.Contains(tile))
+        {
+            _selectedTiles.Remove(tile);
+            _selectedPaths.Remove(key);
+            SetTileSelected(tile, false);
+        }
+        else
+        {
+            _selectedTiles.Add(tile);
+            _selectedPaths.Add(key);
+            SetTileSelected(tile, true);
+        }
+    }
+
+    private void ClearSelection()
+    {
+        foreach (var tile in _selectedTiles) SetTileSelected(tile, false);
+        _selectedTiles.Clear();
+        _selectedPaths.Clear();
+    }
+
+    private IReadOnlyList<DesktopItem> SelectedItems()
+    {
+        var items = _desktopItems.GetItems(_state);
+        return items.Where(item => _selectedPaths.Contains(DesktopItemDiscovery.Normalize(item.Path))).ToArray();
+    }
+
+    private void OpenSelectedOr(DesktopItem item)
+    {
+        var selected = SelectedItems();
+        if (selected.Count == 0 || selected.All(t => !string.Equals(t.Path, item.Path, StringComparison.OrdinalIgnoreCase)))
+            OpenPath(item.Path);
+        else
+            foreach (var target in selected) OpenPath(target.Path);
     }
 
     private double GetDesktopTileHeight() => Math.Clamp(_state.DesktopIconSize, 32, 80) + 40;
@@ -1250,29 +1326,40 @@ public partial class MainWindow : Window
 
     private void DeleteDesktopItem(DesktopItem item)
     {
-        if (!File.Exists(item.Path) && !Directory.Exists(item.Path))
+        DeleteDesktopItems(new[] { item });
+    }
+
+    private void DeleteDesktopItems(IReadOnlyList<DesktopItem> targets)
+    {
+        if (targets.Count == 0) return;
+        var first = targets[0];
+        if (!File.Exists(first.Path) && !Directory.Exists(first.Path))
         {
-            MessageBox.Show("这个项目已经不存在了。刷新桌面后会自动移除。", "删除桌面项目", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show("这些项目已经不存在了。刷新桌面后会自动移除。", "删除桌面项目", MessageBoxButton.OK, MessageBoxImage.Information);
             RenderDesktop();
             return;
         }
-
-        if (MessageBox.Show($"要将“{item.Name}”移到回收站吗？", "删除桌面项目", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+        var names = string.Join("、", targets.Select(t => t.Name));
+        if (targets.Count > 1) names = $"等 {targets.Count} 个项目";
+        if (MessageBox.Show($"要将“{names}”移到回收站吗？", "删除桌面项目", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
             return;
 
         try
         {
-            if (Directory.Exists(item.Path))
-                FileSystem.DeleteDirectory(item.Path, UIOption.OnlyErrorDialogs, RecycleOption.SendToRecycleBin);
-            else
-                FileSystem.DeleteFile(item.Path, UIOption.OnlyErrorDialogs, RecycleOption.SendToRecycleBin);
-
-            _state.DesktopAssignments.Remove(DesktopItemDiscovery.Normalize(item.Path));
+            foreach (var target in targets)
+            {
+                if (Directory.Exists(target.Path))
+                    FileSystem.DeleteDirectory(target.Path, UIOption.OnlyErrorDialogs, RecycleOption.SendToRecycleBin);
+                else
+                    FileSystem.DeleteFile(target.Path, UIOption.OnlyErrorDialogs, RecycleOption.SendToRecycleBin);
+                _state.DesktopAssignments.Remove(DesktopItemDiscovery.Normalize(target.Path));
+            }
+            ClearSelection();
             SaveAndRender();
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"无法删除“{item.Name}”：{ex.Message}", "删除桌面项目", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show($"无法删除所选内容：{ex.Message}", "删除桌面项目", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
