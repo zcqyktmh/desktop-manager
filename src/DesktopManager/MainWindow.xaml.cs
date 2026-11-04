@@ -46,7 +46,7 @@ public partial class MainWindow : Window
     private System.Windows.Threading.DispatcherTimer? _desktopClockTimer;
     private TextBlock? _desktopClockText;
     private TextBlock? _weatherCityValue;
-    private TextBlock? _weatherSymbolValue;
+    private Border? _weatherIconHost;
     private TextBlock? _weatherTemperatureValue;
     private TextBlock? _weatherDescriptionValue;
     private TextBlock? _weatherDetailsValue;
@@ -248,7 +248,8 @@ public partial class MainWindow : Window
         DesktopSurface.Children.Clear();
         _selectedTiles.Clear();
         _systemInfoValues.Clear();
-        _weatherCityValue = _weatherSymbolValue = _weatherTemperatureValue = _weatherDescriptionValue = _weatherDetailsValue = _weatherUpdatedValue = null;
+        _weatherCityValue = _weatherTemperatureValue = _weatherDescriptionValue = _weatherDetailsValue = _weatherUpdatedValue = null;
+        _weatherIconHost = null;
         var toolbar = new DockPanel { Margin = new Thickness(0, 0, 0, 18), LastChildFill = false };
         var status = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
         _desktopClockText = new TextBlock { FontSize = 11, Foreground = PrimaryBrush(), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 10, 0) };
@@ -1716,16 +1717,9 @@ public partial class MainWindow : Window
         var hero = new Grid { Margin = new Thickness(0, 1, 0, 1) };
         hero.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(82) });
         hero.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        var weatherIcon = new Border
-        {
-            Width = 68, Height = 68, CornerRadius = new CornerRadius(24),
-            Background = new SolidColorBrush(Color.FromArgb(38, 255, 190, 76)),
-            HorizontalAlignment = HorizontalAlignment.Left,
-            VerticalAlignment = VerticalAlignment.Center
-        };
-        _weatherSymbolValue = new TextBlock { Text = "☁", FontSize = 43, VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Center };
-        weatherIcon.Child = _weatherSymbolValue;
-        hero.Children.Add(weatherIcon);
+        var weatherVisual = WeatherIconFactory.Create();
+        _weatherIconHost = weatherVisual.Container;
+        hero.Children.Add(_weatherIconHost);
         var summary = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(3, 0, 0, 0) };
         _weatherTemperatureValue = new TextBlock { Text = "读取中…", FontSize = 39, FontWeight = FontWeights.Light, Foreground = PrimaryBrush(), LineHeight = 45 };
         _weatherDescriptionValue = new TextBlock { Text = "正在获取天气", FontSize = 11, Foreground = SecondaryBrush(), Margin = new Thickness(3, -1, 0, 0) };
@@ -1789,9 +1783,15 @@ public partial class MainWindow : Window
                 if (_weatherUpdatedValue is not null) _weatherUpdatedValue.Text = "检查设置中的城市名称";
                 return;
             }
-            var (description, symbol) = WeatherService.Describe(weather.WeatherCode, weather.IsDay);
+            var (description, _) = WeatherService.Describe(weather.WeatherCode, weather.IsDay);
             if (_weatherCityValue is not null) _weatherCityValue.Text = weather.City;
-            if (_weatherSymbolValue is not null) _weatherSymbolValue.Text = symbol;
+            if (_weatherIconHost is not null)
+            {
+                var visual = WeatherIconFactory.Create(weather.WeatherCode, weather.IsDay);
+                _weatherIconHost.Background = visual.Container.Background;
+                visual.Container.Child = null;
+                _weatherIconHost.Child = visual.Icon;
+            }
             if (_weatherTemperatureValue is not null) _weatherTemperatureValue.Text = $"{weather.Temperature:0}°";
             if (_weatherDescriptionValue is not null) _weatherDescriptionValue.Text = description;
             if (_weatherDetailsValue is not null) _weatherDetailsValue.Text = $"体感 {weather.FeelsLike:0}°   湿度 {weather.RelativeHumidity}%   风速 {weather.WindSpeed:0.#} km/h";
