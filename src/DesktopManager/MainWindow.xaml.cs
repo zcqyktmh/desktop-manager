@@ -2120,8 +2120,8 @@ public partial class MainWindow : Window
     private Brush ButtonBrush() => PanelBrush();
     private Brush DropTargetBrush() => new SolidColorBrush(IsDark() ? Color.FromArgb(210, 180, 205, 240) : Color.FromArgb(220, 67, 137, 220));
     private Brush HoverBrush() => new SolidColorBrush(IsDark() ? Color.FromArgb(145, 95, 99, 106) : Color.FromArgb(155, 255, 255, 255));
-    private Brush SelectedBrush() => new SolidColorBrush(IsDark() ? Color.FromArgb(173, 64, 120, 220) : Color.FromArgb(205, 67, 137, 220));
-    private Brush SelectedBorderBrush() => new SolidColorBrush(IsDark() ? Color.FromArgb(224, 120, 170, 250) : Color.FromArgb(235, 40, 110, 210));
+    private Brush SelectedBrush() => new SolidColorBrush(IsDark() ? Color.FromArgb(170, 255, 255, 255) : Color.FromArgb(215, 255, 255, 255));
+    private Brush SelectedBorderBrush() => new SolidColorBrush(IsDark() ? Color.FromArgb(200, 255, 255, 255) : Color.FromArgb(235, 255, 255, 255));
     private Brush PressedBrush() => new SolidColorBrush(IsDark() ? Color.FromArgb(165, 92, 98, 108) : Color.FromArgb(185, 234, 239, 245));
     private DropShadowEffect CardShadow() => new() { BlurRadius = 12, ShadowDepth = 2, Direction = 270, Opacity = IsDark() ? .16 : .08, Color = Colors.Black };
     private static bool IsDark() => Application.Current.Resources["AppBackground"] is SolidColorBrush brush && brush.Color.R < 80;
