@@ -1401,7 +1401,9 @@ public partial class MainWindow : Window
         {
             try
             {
-                _state.DesktopAssignments[DesktopItemDiscovery.Normalize(path)] = group;
+                var desktopPath = PlaceFileOnDesktop(path);
+                if (desktopPath is null) continue;
+                _state.DesktopAssignments[DesktopItemDiscovery.Normalize(desktopPath)] = group;
                 added++;
             }
             catch (Exception) { }
@@ -1426,13 +1428,52 @@ public partial class MainWindow : Window
         layout.Left = Math.Clamp(layout.Left, 0, Math.Max(0, width - layout.Width));
     }
 
+    private string? PlaceFileOnDesktop(string path)
+    {
+        var desktopFolder = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+        if (string.IsNullOrWhiteSpace(desktopFolder) || !Directory.Exists(desktopFolder)) return path;
+        if (string.Equals(Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar), Path.GetFullPath(desktopFolder).TrimEnd(Path.DirectorySeparatorChar), StringComparison.OrdinalIgnoreCase))
+            return null;
+        if (path.StartsWith(desktopFolder.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+            return path;
+        try
+        {
+            var destination = Path.Combine(desktopFolder, Path.GetFileName(path));
+            destination = UniqueDesktopPath(destination);
+            if (Directory.Exists(path)) Directory.CreateDirectory(destination);
+            else File.Copy(path, destination, false);
+            return destination;
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"无法把“{Path.GetFileName(path)}”放到桌面：{ex.Message}", "桌面管家", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return null;
+        }
+    }
+
+    private static string UniqueDesktopPath(string path)
+    {
+        if (!File.Exists(path) && !Directory.Exists(path)) return path;
+        var directory = Path.GetDirectoryName(path)!;
+        var name = Path.GetFileNameWithoutExtension(path);
+        var extension = Path.GetExtension(path);
+        var index = 1;
+        string candidate;
+        do
+        {
+            candidate = Path.Combine(directory, $"{name} ({index}){extension}");
+            index++;
+        } while (File.Exists(candidate) || Directory.Exists(candidate));
+        return candidate;
+    }
+
     private string? SaveClipboardImage(BitmapSource image)
     {
         try
         {
-            var directory = Path.Combine(_store.DataDirectory, "ClipboardImages");
-            Directory.CreateDirectory(directory);
-            var path = Path.Combine(directory, $"剪贴图片-{DateTime.Now:yyyyMMdd-HHmmss}-{Guid.NewGuid():N}.png");
+            var desktopFolder = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+            Directory.CreateDirectory(desktopFolder);
+            var path = UniqueDesktopPath(Path.Combine(desktopFolder, $"剪贴图片-{DateTime.Now:yyyyMMdd-HHmmss}.png"));
             var encoder = new PngBitmapEncoder();
             encoder.Frames.Add(BitmapFrame.Create(image));
             using var stream = File.Create(path);
