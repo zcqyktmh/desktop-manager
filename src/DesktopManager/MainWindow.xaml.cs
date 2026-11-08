@@ -3,6 +3,8 @@ using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Http;
 using System.Text.RegularExpressions;
+using System.Text;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -1209,6 +1211,7 @@ public partial class MainWindow : Window
         };
         var menu = CreateMacContextMenu();
         menu.Items.Add(MenuItem("打开", (_, _) => OpenSelectedOr(item)));
+        menu.Items.Add(MenuItem("打开文件所在位置", (_, _) => OpenContainingFolder(item.Path)));
         if (InstalledApplicationUninstaller.IsApplicationShortcut(item))
         {
             menu.Items.Add(new Separator());
@@ -2236,6 +2239,110 @@ public partial class MainWindow : Window
     {
         try { Process.Start(new ProcessStartInfo(path) { UseShellExecute = true }); }
         catch (Exception ex) { MessageBox.Show($"无法打开项目：{ex.Message}", "桌面管家", MessageBoxButton.OK, MessageBoxImage.Error); }
+    }
+
+    private static string ResolveShortcutTarget(string path)
+    {
+        if (!path.EndsWith(".lnk", StringComparison.OrdinalIgnoreCase)) return path;
+        try
+        {
+            var comType = Type.GetTypeFromCLSID(new Guid("00021401-0000-0000-C000-000000000046"));
+            if (comType is null || Activator.CreateInstance(comType) is not { } instance) return path;
+            var unknown = Marshal.GetIUnknownForObject(instance);
+            try
+            {
+                var linkId = new Guid("000214F9-0000-0000-C000-000000000046");
+                if (Marshal.QueryInterface(unknown, in linkId, out var linkPointer) != 0) return path;
+                var shell = (IShellLink)Marshal.GetObjectForIUnknown(linkPointer);
+                var fileId = new Guid("0000010b-0000-0000-C000-000000000046");
+                Marshal.QueryInterface(unknown, in fileId, out var filePointer);
+                var persistFile = (IPersistFile)Marshal.GetObjectForIUnknown(filePointer);
+                persistFile.Load(path, 0);
+                Marshal.Release(filePointer);
+                Marshal.Release(linkPointer);
+                var buffer = new StringBuilder(512);
+                WIN32_FIND_DATA data = default;
+                shell.GetPath(buffer, buffer.Capacity, ref data, SLGP.UNCPRIORITY);
+                return buffer.Length > 0 ? buffer.ToString() : path;
+            }
+            finally
+            {
+                Marshal.Release(unknown);
+            }
+        }
+        catch
+        {
+            return path;
+        }
+    }
+
+    private void OpenContainingFolder(string path)
+    {
+        try
+        {
+            var target = ResolveShortcutTarget(path);
+            var directory = Directory.Exists(target) ? target : Path.GetDirectoryName(target);
+            if (string.IsNullOrWhiteSpace(directory) || !Directory.Exists(directory))
+            {
+                MessageBox.Show("找不到该项目所在的位置。", "桌面管家", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+            Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{target}\"") { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"无法打开所在位置：{ex.Message}", "桌面管家", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    [ComImport]
+    [Guid("00021401-0000-0000-C000-000000000046")]
+    [ClassInterface(ClassInterfaceType.None)]
+    private sealed class ShellLink;
+
+    [ComImport]
+    [Guid("000214F9-0000-0000-C000-000000000046")]
+    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    private interface IShellLink
+    {
+        void GetPath(StringBuilder pszFile, int cch, ref WIN32_FIND_DATA pfd, SLGP fFlags);
+        void GetIDList(out IntPtr ppidl);
+        void SetIDList(IntPtr pidl);
+        void GetDescription(StringBuilder pszName, int cch);
+        void SetDescription(string pszName);
+        void GetWorkingDirectory(StringBuilder pszDir, int cch);
+        void SetWorkingDirectory(string pszDir);
+        void GetArguments(StringBuilder pszArgs, int cch);
+        void SetArguments(string pszArgs);
+        void GetHotkey(out ushort pwHotkey);
+        void SetHotkey(ushort wHotkey);
+        void GetShowCmd(out int piShowCmd);
+        void SetShowCmd(int iShowCmd);
+        void GetIconLocation(StringBuilder pszIconPath, int cch, out int piIcon);
+        void SetIconLocation(string pszIconPath, int iIcon);
+        void SetRelativePath(string pszDir, int dwReserved);
+        void Resolve(IntPtr hwnd, uint fFlags);
+        void SetPath(string pszFile);
+    }
+
+    [ComImport]
+    [Guid("0000010b-0000-0000-C000-000000000046")]
+    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    private interface IPersistFile
+    {
+        void GetClassID(out Guid pClassID);
+        void IsDirty();
+        void Load(string pszFileName, int dwMode);
+        void Save(string pszFileName, bool fRemember);
+        void SaveCompleted(string pszFileName);
+        void GetCurFile(out string ppszFileName);
+    }
+
+    private struct WIN32_FIND_DATA;
+
+    private enum SLGP
+    {
+        UNCPRIORITY = 2
     }
 
     private static string HostOf(string url) => Uri.TryCreate(url, UriKind.Absolute, out var uri) ? uri.Host : url;
