@@ -58,7 +58,10 @@ public sealed class Bookmark
     public string Group { get; set; } = "常用网址";
 }
 
-public sealed record DesktopItem(string Name, string Path, string Group, string Kind, bool IsTaskbarShortcut = false);
+public sealed record DesktopItem(string Name, string Path, string Group, string Kind, bool IsTaskbarShortcut = false)
+{
+    public bool IsVirtual { get; init; }
+}
 
 public sealed record DesktopCardItem(string Name, string Path, string Group, string Kind, Bookmark? Bookmark = null)
 {

@@ -1128,7 +1128,7 @@ public partial class MainWindow : Window
             payload.SetData(DataFormats.FileDrop, dragPaths);
             DragDrop.DoDragDrop(tile, payload, DragDropEffects.Move);
         };
-        if (Directory.Exists(item.Path))
+        if (!item.IsVirtual && Directory.Exists(item.Path))
         {
             tile.AllowDrop = true;
             tile.DragOver += (_, e) =>
@@ -1168,12 +1168,15 @@ public partial class MainWindow : Window
             };
         }
         var nativeIcon = DesktopItemIconService.GetIcon(item.Path);
-        var imagePreview = TryLoadImagePreview(item.Path);
+        var nativeIconOverride = item.IsVirtual ? GetVirtualIcon(item.Name) : null;
+        var imagePreview = item.IsVirtual ? null : TryLoadImagePreview(item.Path);
         var itemIcon = imagePreview is not null
             ? (UIElement)new Image { Source = imagePreview, Width = displayIconSize, Height = displayIconSize, Stretch = System.Windows.Media.Stretch.UniformToFill, SnapsToDevicePixels = true }
             : nativeIcon is null
                 ? IconTile(item.Name, displayIconSize)
                 : new Image { Source = nativeIcon, Width = displayIconSize, Height = displayIconSize, Stretch = System.Windows.Media.Stretch.Uniform, SnapsToDevicePixels = true };
+        if (nativeIconOverride is not null)
+            itemIcon = new Image { Source = nativeIconOverride, Width = displayIconSize, Height = displayIconSize, Stretch = System.Windows.Media.Stretch.Uniform, SnapsToDevicePixels = true };
         UIElement content;
         if (listMode)
         {
@@ -1207,47 +1210,57 @@ public partial class MainWindow : Window
             if (toggle) ToggleTileSelection(tile, item);
             else if (_selectedTiles.Count > 1 && _selectedTiles.Contains(tile)) { /* keep multi-select on plain click of an already-selected tile */ }
             else SelectTile(tile);
-            if (ev.ClickCount == 2) OpenPath(item.Path);
+            if (ev.ClickCount == 2)
+            {
+                if (item.IsVirtual) OpenVirtualItem(item.Name);
+                else OpenPath(item.Path);
+            }
         };
         var menu = CreateMacContextMenu();
         menu.Items.Add(MenuItem("打开", (_, _) => OpenSelectedOr(item)));
-        menu.Items.Add(MenuItem("打开文件所在位置", (_, _) => OpenContainingFolder(item.Path)));
+        if (!item.IsVirtual)
+            menu.Items.Add(MenuItem("打开文件所在位置", (_, _) => OpenContainingFolder(item.Path)));
+        if (item.IsVirtual && item.Name == "回收站")
+            menu.Items.Add(MenuItem("清空回收站", (_, _) => EmptyRecycleBin()));
         if (InstalledApplicationUninstaller.IsApplicationShortcut(item))
         {
             menu.Items.Add(new Separator());
             menu.Items.Add(MenuItem("卸载软件…", (_, _) => InstalledApplicationUninstaller.Uninstall(item, this)));
         }
-        var moveMenu = new MenuItem { Header = "移动到分组" };
-        foreach (var group in groups)
+        if (!item.IsVirtual)
         {
-            var destination = group;
-            var move = new MenuItem { Header = group, IsCheckable = true, IsChecked = string.Equals(group, item.Group, StringComparison.CurrentCultureIgnoreCase) };
-            move.Click += (_, _) =>
+            var moveMenu = new MenuItem { Header = "移动到分组" };
+            foreach (var group in groups)
             {
-                foreach (var selected in SelectedItems()) MoveDesktopItem(selected, destination);
+                var destination = group;
+                var move = new MenuItem { Header = group, IsCheckable = true, IsChecked = string.Equals(group, item.Group, StringComparison.CurrentCultureIgnoreCase) };
+                move.Click += (_, _) =>
+                {
+                    foreach (var selected in SelectedItems()) MoveDesktopItem(selected, destination);
+                    ClearSelection();
+                };
+                moveMenu.Items.Add(move);
+            }
+            menu.Items.Add(moveMenu);
+            menu.Items.Add(new Separator());
+            menu.Items.Add(MenuItem("粘贴到此分组", (_, _) => PasteIntoGroup(Clipboard.GetDataObject(), item.Group)));
+            menu.Items.Add(MenuItem("从分组移除", (_, _) =>
+            {
+                foreach (var selected in SelectedItems()) MoveDesktopItem(selected, "未分组");
                 ClearSelection();
-            };
-            moveMenu.Items.Add(move);
-        }
-        menu.Items.Add(moveMenu);
-        menu.Items.Add(new Separator());
-        menu.Items.Add(MenuItem("粘贴到此分组", (_, _) => PasteIntoGroup(Clipboard.GetDataObject(), item.Group)));
-        menu.Items.Add(MenuItem("从分组移除", (_, _) =>
-        {
-            foreach (var selected in SelectedItems()) MoveDesktopItem(selected, "未分组");
-            ClearSelection();
-        }));
-        menu.Items.Add(new Separator());
-        if (item.IsTaskbarShortcut)
-            menu.Items.Add(MenuItem("从桌面隐藏", (_, _) => HideTaskbarItem(item)));
-        else
-            menu.Items.Add(MenuItem("删除", (_, _) =>
-            {
-                var targets = SelectedItems();
-                if (!targets.Any(t => string.Equals(t.Path, item.Path, StringComparison.OrdinalIgnoreCase)))
-                    targets = new[] { item };
-                DeleteDesktopItems(targets);
             }));
+            menu.Items.Add(new Separator());
+            if (item.IsTaskbarShortcut)
+                menu.Items.Add(MenuItem("从桌面隐藏", (_, _) => HideTaskbarItem(item)));
+            else
+                menu.Items.Add(MenuItem("删除", (_, _) =>
+                {
+                    var targets = SelectedItems();
+                    if (!targets.Any(t => string.Equals(t.Path, item.Path, StringComparison.OrdinalIgnoreCase)))
+                        targets = new[] { item };
+                    DeleteDesktopItems(targets);
+                }));
+        }
         tile.ContextMenu = menu;
         if (_selectedPaths.Contains(DesktopItemDiscovery.Normalize(item.Path)))
         {
@@ -1317,9 +1330,14 @@ public partial class MainWindow : Window
     {
         var selected = SelectedItems();
         if (selected.Count == 0 || selected.All(t => !string.Equals(t.Path, item.Path, StringComparison.OrdinalIgnoreCase)))
-            OpenPath(item.Path);
+        {
+            if (item.IsVirtual) OpenVirtualItem(item.Name);
+            else OpenPath(item.Path);
+        }
         else
-            foreach (var target in selected) OpenPath(target.Path);
+            foreach (var target in selected)
+                if (target.IsVirtual) OpenVirtualItem(target.Name);
+                else OpenPath(target.Path);
     }
 
     private double GetDesktopTileHeight() => Math.Clamp(_state.DesktopIconSize, 32, 80) + 40;
@@ -2074,6 +2092,7 @@ public partial class MainWindow : Window
 
     private static string GetFileCategory(DesktopItem item)
     {
+        if (item.IsVirtual) return "未分组";
         if (Directory.Exists(item.Path)) return "文件夹";
         var extension = Path.GetExtension(item.Path).ToLowerInvariant();
         if (extension is ".lnk" or ".url") return "应用程序";
@@ -2239,6 +2258,54 @@ public partial class MainWindow : Window
     {
         try { Process.Start(new ProcessStartInfo(path) { UseShellExecute = true }); }
         catch (Exception ex) { MessageBox.Show($"无法打开项目：{ex.Message}", "桌面管家", MessageBoxButton.OK, MessageBoxImage.Error); }
+    }
+
+    private void OpenVirtualItem(string name)
+    {
+        try
+        {
+            var shellPath = name switch
+            {
+                "回收站" => "explorer.exe",
+                "此电脑" => "explorer.exe",
+                "网络" => "explorer.exe",
+                "控制面板" => "explorer.exe",
+                _ => null
+            };
+            if (shellPath is null) return;
+            var arguments = name switch
+            {
+                "回收站" => "shell:RecycleBinFolder",
+                "此电脑" => "shell:MyComputerFolder",
+                "网络" => "shell:NetworkPlacesFolder",
+                "控制面板" => "shell:ControlPanelFolder",
+                _ => ""
+            };
+            Process.Start(new ProcessStartInfo(shellPath, arguments) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"无法打开“{name}”：{ex.Message}", "桌面管家", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private static BitmapSource? GetVirtualIcon(string name)
+    {
+        var shellTarget = name switch
+        {
+            "回收站" => "shell:RecycleBinFolder",
+            "此电脑" => "shell:MyComputerFolder",
+            "网络" => "shell:NetworkPlacesFolder",
+            "控制面板" => "shell:ControlPanelFolder",
+            _ => null
+        };
+        return shellTarget is null ? null : DesktopItemIconService.GetIcon(shellTarget);
+    }
+
+    private void EmptyRecycleBin()
+    {
+        try { Process.Start(new ProcessStartInfo("powershell.exe", "-NoProfile -Command \"Clear-RecycleBin -Force\"") { UseShellExecute = true, WindowStyle = ProcessWindowStyle.Hidden }); }
+        catch (Exception ex) { MessageBox.Show($"无法清空回收站：{ex.Message}", "桌面管家", MessageBoxButton.OK, MessageBoxImage.Error); }
     }
 
     private static string ResolveShortcutTarget(string path)

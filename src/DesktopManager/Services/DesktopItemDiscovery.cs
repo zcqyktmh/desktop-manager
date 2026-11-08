@@ -33,10 +33,69 @@ public sealed class DesktopItemDiscovery
             .OrderBy(item => item.Group == "未分组" ? 1 : 0)
             .ThenBy(item => item.Group, StringComparer.CurrentCultureIgnoreCase)
             .ThenBy(item => item.Name, StringComparer.CurrentCultureIgnoreCase)
-            .ToArray();
+            .ToList();
+        items.AddRange(GetVirtualShellItems(state));
+        items = items
+            .OrderBy(item => item.Group == "未分组" ? 1 : 0)
+            .ThenBy(item => item.Group, StringComparer.CurrentCultureIgnoreCase)
+            .ThenBy(item => item.Name, StringComparer.CurrentCultureIgnoreCase)
+            .ToList();
         var groups = string.Join(",", items.GroupBy(item => item.Group).Select(group => $"{group.Key}:{group.Count()}"));
-        WriteDiagnostic($"discovered={items.Length} assignments={state.DesktopAssignments.Count} groups=[{groups}]");
+        WriteDiagnostic($"discovered={items.Count} assignments={state.DesktopAssignments.Count} groups=[{groups}]");
         return items;
+    }
+
+    private static readonly Guid RecycleBinGuid = new("645FF040-5081-101B-9F08-00AA002F954E");
+    private static readonly Guid ThisPcGuid = new("20D04FE0-3AEA-1069-A2D8-08002B30309D");
+    private static readonly Guid NetworkGuid = new("208D2C60-3AEA-1069-A2D7-08002B30309D");
+    private static readonly Guid ControlPanelGuid = new("5399E694-6CE5-4D6C-8FCE-1D8870FDCBA0");
+
+    private static IEnumerable<DesktopItem> GetVirtualShellItems(AppState state)
+    {
+        const string classicKey = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\NewStartPanel";
+        const string policyKey = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer";
+        var classic = ReadDword(classicKey);
+        var policy = ReadDword(policyKey);
+        bool Visible(Guid guid)
+        {
+            var guidString = $"{{{guid.ToString().ToUpperInvariant()}}}";
+            if (classic.TryGetValue(guidString, out var classicValue))
+                return classicValue == 0;
+            if (policy.TryGetValue(guidString, out var policyValue))
+                return policyValue == 0;
+            // Windows shows the Recycle Bin by default (value 1 means hide); other
+            // virtual icons are hidden by default (value 0 means show).
+            return guid == RecycleBinGuid;
+        }
+        var result = new List<DesktopItem>();
+        var entries = new[]
+        {
+            (RecycleBinGuid, "回收站"),
+            (ThisPcGuid, "此电脑"),
+            (NetworkGuid, "网络"),
+            (ControlPanelGuid, "控制面板")
+        };
+        foreach (var (guid, name) in entries)
+        {
+            if (!Visible(guid)) continue;
+            var group = state.DesktopAssignments.TryGetValue(Normalize(name), out var assigned) ? assigned : "未分组";
+            result.Add(new DesktopItem(name, name, group, "系统", false) { IsVirtual = true });
+        }
+        return result;
+    }
+
+    private static Dictionary<string, int> ReadDword(string keyPath)
+    {
+        var values = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(keyPath) ?? Microsoft.Win32.Registry.LocalMachine.OpenSubKey(keyPath);
+            if (key is null) return values;
+            foreach (var valueName in key.GetValueNames())
+                if (key.GetValue(valueName) is int intValue) values[valueName] = intValue;
+        }
+        catch (Exception) { }
+        return values;
     }
 
     public static string Normalize(string path) => Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar).ToUpperInvariant();
