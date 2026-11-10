@@ -470,6 +470,23 @@ public partial class MainWindow : Window
             Panel.SetZIndex(weatherCard, ++_groupZOrder);
             groupCanvas.Children.Add(weatherCard);
         }
+        if (_state.TodoCardEnabled)
+        {
+            var todoLayout = _state.TodoCardLayout;
+            if (todoLayout.Left < 0 || todoLayout.Top < 0)
+            {
+                var reservedRight = (_state.SystemInfoCardEnabled ? _state.SystemInfoCardLayout.Width + 20 : 0)
+                    + (_state.WeatherCardEnabled ? _state.WeatherCardLayout.Width + 20 : 0);
+                todoLayout.Left = Math.Max(0, groupCanvas.Width - reservedRight - todoLayout.Width - 20);
+                todoLayout.Top = 20 + (_state.SystemInfoCardEnabled ? _state.SystemInfoCardLayout.Height + 20 : 0);
+                if (todoLayout.Top + todoLayout.Height > groupCanvas.Height) todoLayout.Top = 20;
+            }
+            var todoCard = CreateTodoCard(groupCanvas, todoLayout);
+            Canvas.SetLeft(todoCard, todoLayout.Left);
+            Canvas.SetTop(todoCard, todoLayout.Top);
+            Panel.SetZIndex(todoCard, ++_groupZOrder);
+            groupCanvas.Children.Add(todoCard);
+        }
         ApplyStoredCardZOrder(groupCanvas);
         DesktopSurface.Children.Add(groupCanvas);
     }
@@ -1087,13 +1104,14 @@ public partial class MainWindow : Window
     }
 
     private static bool IsDesktopCard(Border border) => border.Tag is string tag &&
-        (tag.StartsWith("group:", StringComparison.OrdinalIgnoreCase) || tag is "@bookmarks" or "@system-info" or "@weather");
+        (tag.StartsWith("group:", StringComparison.OrdinalIgnoreCase) || tag is "@bookmarks" or "@system-info" or "@weather" or "@todo");
 
     private static string GetCardDisplayName(string key) => key switch
     {
         "@bookmarks" => "常用网址",
         "@system-info" => "系统状态",
         "@weather" => "天气",
+        "@todo" => "待办",
         _ when key.StartsWith("group:", StringComparison.OrdinalIgnoreCase) => key[6..],
         _ => key
     };
@@ -1637,6 +1655,232 @@ public partial class MainWindow : Window
         ConfigureWeatherTimer();
     }
 
+    private Border CreateTodoCard(Canvas canvas, DesktopGroupLayout savedLayout)
+    {
+        var panel = new Border
+        {
+            Tag = "@todo",
+            Width = savedLayout.Width,
+            Height = savedLayout.Height,
+            Padding = new Thickness(14),
+            CornerRadius = new CornerRadius(21),
+            Background = PanelBrush(),
+            BorderBrush = PanelBorderBrush(),
+            BorderThickness = new Thickness(.6),
+            Effect = CardShadow(),
+            Focusable = true,
+            FocusVisualStyle = null
+        };
+        panel.ContextMenu = CreateMacContextMenu();
+        AddCardLayerActions(panel.ContextMenu, "@todo");
+
+        var root = new Grid();
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+
+        // 标题栏：拖动 + 设置入口
+        var header = new DockPanel { LastChildFill = false, Margin = new Thickness(3, 0, 3, 8) };
+        var title = new TextBlock { Text = "⠿  待办", FontSize = 12, FontWeight = FontWeights.SemiBold, Foreground = PrimaryBrush(), Cursor = Cursors.SizeAll, VerticalAlignment = VerticalAlignment.Center };
+        header.Children.Add(title);
+        var more = new Button { Content = "···", Width = 30, Height = 28, Background = Brushes.Transparent, BorderThickness = new Thickness(0), Foreground = SecondaryBrush(), Padding = new Thickness(0), Cursor = Cursors.Hand, ToolTip = "待办卡片设置", Template = RoundedButtonTemplate(14) };
+        more.Click += (_, _) => ShowSettings();
+        DockPanel.SetDock(more, Dock.Right);
+        header.Children.Add(more);
+        EnableGroupDragging(title, panel, canvas, savedLayout);
+        root.Children.Add(header);
+
+        // 主体：两个区域（个人 / 组织），各含输入行 + 列表
+        var body = new Grid { Margin = new Thickness(2, 0, 2, 0) };
+        body.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        body.RowDefinitions.Add(new RowDefinition { Height = new GridLength(10) });
+        body.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+
+        var personalSection = BuildTodoSection("personal", "个人待办", canvas, savedLayout, panel);
+        Grid.SetRow(personalSection, 0);
+        body.Children.Add(personalSection);
+        var teamSection = BuildTodoSection("team", "组织待办", canvas, savedLayout, panel);
+        Grid.SetRow(teamSection, 2);
+        body.Children.Add(teamSection);
+
+        Grid.SetRow(body, 1);
+        root.Children.Add(body);
+
+        var content = new Grid { ClipToBounds = true };
+        content.Children.Add(root);
+        AddResizeGrip(content, panel, canvas, savedLayout, ResizeAnchor.TopLeft);
+        AddResizeGrip(content, panel, canvas, savedLayout, ResizeAnchor.TopRight);
+        AddResizeGrip(content, panel, canvas, savedLayout, ResizeAnchor.BottomLeft);
+        AddResizeGrip(content, panel, canvas, savedLayout, ResizeAnchor.BottomRight);
+        panel.Child = content;
+        return panel;
+    }
+
+    private Grid BuildTodoSection(string category, string heading, Canvas canvas, DesktopGroupLayout cardLayout, Border panel)
+    {
+        var section = new Grid { Margin = new Thickness(0, 0, 0, 4) };
+        section.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        section.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        section.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+
+        var headRow = new DockPanel { LastChildFill = false, Margin = new Thickness(2, 3, 2, 5) };
+        var headingText = new TextBlock { Text = heading, FontSize = 10.5, FontWeight = FontWeights.SemiBold, Foreground = SecondaryBrush(), VerticalAlignment = VerticalAlignment.Center };
+        headRow.Children.Add(headingText);
+        var countText = new TextBlock { FontSize = 9.5, Foreground = SecondaryBrush(), Margin = new Thickness(6, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
+        headRow.Children.Add(countText);
+        DockPanel.SetDock(countText, Dock.Right);
+        section.Children.Add(headRow);
+
+        // 输入行
+        var inputRow = new Grid { Margin = new Thickness(0, 0, 0, 6) };
+        inputRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        inputRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        var input = new TextBox
+        {
+            Height = 30,
+            Padding = new Thickness(9, 4, 9, 4),
+            FontSize = 11,
+            Background = IsDark() ? new SolidColorBrush(Color.FromArgb(60, 255, 255, 255)) : Brushes.White,
+            Foreground = PrimaryBrush(),
+            BorderBrush = PanelBorderBrush(),
+            BorderThickness = new Thickness(.7),
+            VerticalContentAlignment = VerticalAlignment.Center
+        };
+        var categoryLabel = category == "personal" ? "个人" : "组织";
+        System.Windows.Controls.ToolTipService.SetToolTip(input, $"输入{categoryLabel}待办后回车或点 + 添加");
+        var addButton = new Button
+        {
+            Content = "+",
+            Width = 30,
+            Height = 30,
+            Margin = new Thickness(6, 0, 0, 0),
+            Background = new SolidColorBrush(Color.FromRgb(52, 120, 246)),
+            Foreground = Brushes.White,
+            BorderThickness = new Thickness(0),
+            FontSize = 16,
+            Cursor = Cursors.Hand,
+            Template = RoundedButtonTemplate(8)
+        };
+        inputRow.Children.Add(input);
+        inputRow.Children.Add(addButton);
+        Grid.SetRow(inputRow, 1);
+
+        var listHost = new Grid { Margin = new Thickness(0, 0, 0, 0) };
+        Grid.SetRow(listHost, 2);
+
+        Action refresh = () => { };
+        refresh = () =>
+        {
+            var items = _state.TodoItems.Where(t => t.Category == category).ToList();
+            var remaining = items.Count(t => !t.Done);
+            countText.Text = items.Count == 0 ? "" : $"{remaining}/{items.Count}";
+            listHost.Children.Clear();
+            var stack = new StackPanel { VerticalAlignment = VerticalAlignment.Top };
+            if (items.Count == 0)
+            {
+                stack.Children.Add(new TextBlock { Text = "还没有待办，在上面添加一条吧。", FontSize = 10, Foreground = SecondaryBrush(), Margin = new Thickness(4, 8, 4, 4), TextWrapping = TextWrapping.Wrap });
+            }
+            foreach (var todo in items)
+            {
+                stack.Children.Add(BuildTodoRow(todo, refresh, canvas, cardLayout, panel));
+            }
+            var scroll = new ScrollViewer
+            {
+                Content = stack,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+                Background = Brushes.Transparent,
+                Focusable = false
+            };
+            scroll.Resources[typeof(ScrollBar)] = (Style)FindResource("MacScrollBarStyle");
+            listHost.Children.Add(scroll);
+        };
+
+        void Commit()
+        {
+            var text = input.Text.Trim();
+            if (string.IsNullOrWhiteSpace(text)) return;
+            _state.TodoItems.Add(new TodoItem { Text = text, Category = category });
+            input.Text = "";
+            refresh();
+            SaveState();
+        }
+
+        addButton.Click += (_, _) => Commit();
+        input.KeyDown += (_, e) =>
+        {
+            if (e.Key == Key.Enter) { e.Handled = true; Commit(); }
+        };
+        input.LostFocus += (_, _) => input.Text = input.Text.Trim();
+
+        section.Children.Add(inputRow);
+        section.Children.Add(listHost);
+        refresh();
+        return section;
+    }
+
+    private Grid BuildTodoRow(TodoItem todo, Action refresh, Canvas canvas, DesktopGroupLayout cardLayout, Border panel)
+    {
+        var row = new Grid { Margin = new Thickness(0, 2, 0, 2), MinHeight = 30 };
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        var check = new CheckBox
+        {
+            Width = 17,
+            Height = 17,
+            Margin = new Thickness(2, 0, 7, 0),
+            VerticalAlignment = VerticalAlignment.Center,
+            IsChecked = todo.Done,
+            Cursor = Cursors.Hand
+        };
+        check.Click += (_, _) =>
+        {
+            todo.Done = check.IsChecked == true;
+            refresh();
+            SaveState();
+        };
+
+        var label = new TextBlock
+        {
+            Text = todo.Text,
+            FontSize = 11,
+            Foreground = todo.Done ? SecondaryBrush() : PrimaryBrush(),
+            VerticalAlignment = VerticalAlignment.Center,
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 0, 6, 0)
+        };
+        if (todo.Done)
+            label.TextDecorations = TextDecorations.Strikethrough;
+
+        var delete = new Button
+        {
+            Content = "×",
+            Width = 22,
+            Height = 22,
+            Background = Brushes.Transparent,
+            BorderThickness = new Thickness(0),
+            Foreground = SecondaryBrush(),
+            FontSize = 14,
+            Cursor = Cursors.Hand,
+            ToolTip = "删除",
+            Template = RoundedButtonTemplate(7)
+        };
+        delete.Click += (_, _) =>
+        {
+            _state.TodoItems.Remove(todo);
+            refresh();
+            SaveState();
+        };
+
+        row.Children.Add(check);
+        Grid.SetColumn(label, 1);
+        row.Children.Add(label);
+        Grid.SetColumn(delete, 2);
+        row.Children.Add(delete);
+        return row;
+    }
+
     private Border CreateSystemInfoCard(Canvas canvas, DesktopGroupLayout savedLayout)
     {
         var panel = new Border
@@ -1944,7 +2188,8 @@ public partial class MainWindow : Window
 
     private void CreateGroup()
     {
-        var name = PromptForText("新建桌面分组", "分组名称", "");
+        var mp = Forms.Control.MousePosition;
+        var name = PromptForText("新建桌面分组", "分组名称", "", new System.Windows.Point(mp.X, mp.Y));
         if (string.IsNullOrWhiteSpace(name)) return;
         name = name.Trim();
         if (name.Equals("未分组", StringComparison.OrdinalIgnoreCase) || _state.DesktopGroups.Contains(name, StringComparer.CurrentCultureIgnoreCase))
@@ -2236,9 +2481,10 @@ public partial class MainWindow : Window
         SaveState();
     }
 
-    private string? PromptForText(string title, string label, string initial)
+    private string? PromptForText(string title, string label, string initial, System.Windows.Point? atMouse = null)
     {
-        var window = new Window { Title = title, Width = 380, SizeToContent = SizeToContent.Height, ResizeMode = ResizeMode.NoResize, WindowStartupLocation = WindowStartupLocation.CenterScreen, Background = SurfaceBrush(), Foreground = PrimaryBrush(), FontFamily = FontFamily };
+        var window = new Window { Title = title, Width = 380, SizeToContent = SizeToContent.Height, ResizeMode = ResizeMode.NoResize, Background = SurfaceBrush(), Foreground = PrimaryBrush(), FontFamily = FontFamily };
+        window.WindowStartupLocation = atMouse.HasValue ? WindowStartupLocation.Manual : WindowStartupLocation.CenterScreen;
         var layout = new StackPanel { Margin = new Thickness(22) };
         layout.Children.Add(new TextBlock { Text = label, FontSize = 12, Margin = new Thickness(0, 0, 0, 6) });
         var input = new TextBox { Text = initial, Height = 34, Padding = new Thickness(8, 5, 8, 5), MaxLength = 40 };
@@ -2250,6 +2496,27 @@ public partial class MainWindow : Window
         save.Click += (_, _) => window.DialogResult = true;
         buttons.Children.Add(cancel); buttons.Children.Add(save); layout.Children.Add(buttons);
         window.Content = layout;
+        if (atMouse.HasValue)
+        {
+            // 先按鼠标位置预估定位，避免 Manual 模式下闪现到 (0,0)
+            window.Left = atMouse.Value.X + 8;
+            window.Top = atMouse.Value.Y + 8;
+            window.Loaded += (_, _) =>
+            {
+                var screen = Forms.Screen.FromPoint(Forms.Control.MousePosition);
+                var area = screen.WorkingArea;
+                var w = window.ActualWidth;
+                var h = window.ActualHeight;
+                var x = atMouse.Value.X + 8;
+                var y = atMouse.Value.Y + 8;
+                if (x + w > area.Right) x = area.Right - w;
+                if (x < area.Left) x = area.Left;
+                if (y + h > area.Bottom) y = area.Bottom - h;
+                if (y < area.Top) y = area.Top;
+                window.Left = x;
+                window.Top = y;
+            };
+        }
         window.Loaded += (_, _) => { input.Focus(); input.SelectAll(); };
         return window.ShowDialog() == true ? input.Text : null;
     }

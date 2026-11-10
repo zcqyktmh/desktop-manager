@@ -38,6 +38,18 @@ public sealed class AppState
     public string WeatherCity { get; set; } = "";
     public DesktopGroupLayout WeatherCardLayout { get; set; } = new() { Left = -1, Top = -1, Width = 300, Height = 210 };
     public int DesktopIconSize { get; set; } = 40;
+    public bool TodoCardEnabled { get; set; } = true;
+    public bool TodoCardPreferenceInitialized { get; set; }
+    public ObservableCollection<TodoItem> TodoItems { get; set; } = [];
+    public DesktopGroupLayout TodoCardLayout { get; set; } = new() { Left = -1, Top = -1, Width = 320, Height = 360 };
+}
+
+public sealed class TodoItem
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public string Text { get; set; } = "";
+    public bool Done { get; set; }
+    public string Category { get; set; } = "personal"; // "personal" 个人待办 | "team" 组织待办
 }
 
 public sealed class DesktopGroupLayout

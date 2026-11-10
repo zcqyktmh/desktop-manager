@@ -44,6 +44,7 @@ public partial class SettingsWindow : Window
         ShowSystemDriveCheck.IsChecked = state.SystemInfoShowSystemDrive;
         WeatherCardCheck.IsChecked = state.WeatherCardEnabled;
         WeatherCityBox.Text = state.WeatherCity;
+        TodoCardCheck.IsChecked = state.TodoCardEnabled;
         state.DesktopIconSize = Math.Clamp(state.DesktopIconSize, 32, 80);
         IconSizeSlider.Value = state.DesktopIconSize;
         UpdateIconSizeDescription(state.DesktopIconSize);
@@ -63,6 +64,7 @@ public partial class SettingsWindow : Window
         ShowGpuTemperatureCheck.Click += (_, _) => { _state.SystemInfoShowGpuTemperature = ShowGpuTemperatureCheck.IsChecked == true; _save(); };
         ShowSystemDriveCheck.Click += (_, _) => { _state.SystemInfoShowSystemDrive = ShowSystemDriveCheck.IsChecked == true; _save(); };
         WeatherCardCheck.Click += (_, _) => { _state.WeatherCardEnabled = WeatherCardCheck.IsChecked == true; _save(); };
+        TodoCardCheck.Click += (_, _) => { _state.TodoCardEnabled = TodoCardCheck.IsChecked == true; _state.TodoCardPreferenceInitialized = true; _save(); };
         WeatherCityBox.TextChanged += (_, _) => { _state.WeatherCity = WeatherCityBox.Text.Trim(); _save(); };
         BackupButton.Click += (_, _) => ExportBackup();
         UpdateWallpaperDescription();
@@ -132,6 +134,7 @@ public partial class SettingsWindow : Window
             "外观与图标" => "AppearanceSectionCard",
             "桌面信息卡片" => "SystemInfoSectionCard",
             "天气小组件" => "WeatherSectionCard",
+            "待办卡片" => "TodoSectionCard",
             "启动与行为" => "BehaviorSectionCard",
             "数据" => "DataSectionCard",
             _ => ""

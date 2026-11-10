@@ -182,6 +182,13 @@ public sealed class AppDataStore
         state.WeatherCity ??= "";
         state.WeatherCardLayout ??= new DesktopGroupLayout { Left = -1, Top = -1, Width = 300, Height = 210 };
         state.CardZOrder ??= [];
+        state.TodoItems ??= [];
+        state.TodoCardLayout ??= new DesktopGroupLayout { Left = -1, Top = -1, Width = 320, Height = 360 };
+        if (!state.TodoCardPreferenceInitialized)
+        {
+            state.TodoCardEnabled = true;
+            state.TodoCardPreferenceInitialized = true;
+        }
         return state;
     }
 

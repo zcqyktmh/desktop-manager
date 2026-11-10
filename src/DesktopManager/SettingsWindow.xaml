@@ -204,6 +204,17 @@
                         </StackPanel>
                     </Border>
 
+                    <ToggleButton x:Name="TodoSectionToggle" Tag="待办卡片" Content="⌄  待办卡片" IsChecked="True" FontSize="12" FontWeight="SemiBold" Foreground="#858791" Background="Transparent" BorderThickness="0" HorizontalContentAlignment="Left" Padding="2,0" Margin="2,19,0,9" Click="SectionToggle_Click"/>
+                    <Border x:Name="TodoSectionCard" Background="{StaticResource CardBrush}" CornerRadius="12" Padding="16,7">
+                        <StackPanel>
+                            <Grid MinHeight="62"><Grid.ColumnDefinitions><ColumnDefinition Width="38"/><ColumnDefinition Width="*"/><ColumnDefinition Width="48"/></Grid.ColumnDefinitions>
+                                <Border Width="30" Height="30" Background="#E9EFFB" CornerRadius="9" VerticalAlignment="Center"><TextBlock Text="☑" Foreground="#3478F6" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="显示待办卡片" FontSize="12" FontWeight="Medium"/><TextBlock Text="桌面记录个人待办与组织待办，可拖动调整大小" FontSize="10.5" Foreground="#858791" Margin="0,3,0,0"/></StackPanel>
+                                <CheckBox x:Name="TodoCardCheck" Grid.Column="2" Style="{StaticResource MacSwitch}" VerticalAlignment="Center" ToolTip="在桌面显示或隐藏待办卡片"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
                     <ToggleButton x:Name="BehaviorSectionToggle" Tag="启动与行为" Content="⌄  启动与行为" IsChecked="True" FontSize="12" FontWeight="SemiBold" Foreground="#858791" Background="Transparent" BorderThickness="0" HorizontalContentAlignment="Left" Padding="2,0" Margin="2,19,0,9" Click="SectionToggle_Click"/>
                     <Border x:Name="BehaviorSectionCard" Background="{StaticResource CardBrush}" CornerRadius="12" Padding="16,4">
                         <StackPanel>
