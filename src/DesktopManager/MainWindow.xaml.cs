@@ -1664,7 +1664,9 @@ public partial class MainWindow : Window
             Height = savedLayout.Height,
             Padding = new Thickness(14),
             CornerRadius = new CornerRadius(21),
-            Background = PanelBrush(),
+            Background = new SolidColorBrush(IsDark()
+                ? Color.FromArgb(226, 31, 33, 39)
+                : Color.FromArgb(224, 250, 251, 253)),
             BorderBrush = PanelBorderBrush(),
             BorderThickness = new Thickness(.6),
             Effect = CardShadow(),
@@ -1680,7 +1682,7 @@ public partial class MainWindow : Window
 
         // 标题栏：拖动 + 设置入口
         var header = new DockPanel { LastChildFill = false, Margin = new Thickness(3, 0, 3, 8) };
-        var title = new TextBlock { Text = "⠿  待办", FontSize = 12, FontWeight = FontWeights.SemiBold, Foreground = PrimaryBrush(), Cursor = Cursors.SizeAll, VerticalAlignment = VerticalAlignment.Center };
+        var title = new TextBlock { Text = "⠿  待办", FontFamily = new FontFamily("Microsoft YaHei UI"), FontSize = 15, FontWeight = FontWeights.SemiBold, Foreground = PrimaryBrush(), Cursor = Cursors.SizeAll, VerticalAlignment = VerticalAlignment.Center };
         header.Children.Add(title);
         var more = new Button { Content = "···", Width = 30, Height = 28, Background = Brushes.Transparent, BorderThickness = new Thickness(0), Foreground = SecondaryBrush(), Padding = new Thickness(0), Cursor = Cursors.Hand, ToolTip = "待办卡片设置", Template = RoundedButtonTemplate(14) };
         more.Click += (_, _) => ShowSettings();
@@ -1723,9 +1725,9 @@ public partial class MainWindow : Window
         section.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
 
         var headRow = new DockPanel { LastChildFill = false, Margin = new Thickness(2, 3, 2, 5) };
-        var headingText = new TextBlock { Text = heading, FontSize = 10.5, FontWeight = FontWeights.SemiBold, Foreground = SecondaryBrush(), VerticalAlignment = VerticalAlignment.Center };
+        var headingText = new TextBlock { Text = heading, FontFamily = new FontFamily("Microsoft YaHei UI"), FontSize = 13, FontWeight = FontWeights.SemiBold, Foreground = IsDark() ? new SolidColorBrush(Color.FromRgb(238, 239, 243)) : new SolidColorBrush(Color.FromRgb(51, 54, 61)), VerticalAlignment = VerticalAlignment.Center };
         headRow.Children.Add(headingText);
-        var countText = new TextBlock { FontSize = 9.5, Foreground = SecondaryBrush(), Margin = new Thickness(6, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
+        var countText = new TextBlock { FontFamily = new FontFamily("Microsoft YaHei UI"), FontSize = 11.5, FontWeight = FontWeights.Medium, Foreground = IsDark() ? new SolidColorBrush(Color.FromRgb(207, 210, 218)) : new SolidColorBrush(Color.FromRgb(78, 82, 91)), Margin = new Thickness(7, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
         headRow.Children.Add(countText);
         DockPanel.SetDock(countText, Dock.Right);
         section.Children.Add(headRow);
@@ -1738,7 +1740,9 @@ public partial class MainWindow : Window
         {
             Height = 30,
             Padding = new Thickness(9, 4, 9, 4),
-            FontSize = 11,
+            FontFamily = new FontFamily("Microsoft YaHei UI"),
+            FontSize = 14,
+            FontWeight = FontWeights.Normal,
             Background = IsDark() ? new SolidColorBrush(Color.FromArgb(60, 255, 255, 255)) : Brushes.White,
             Foreground = PrimaryBrush(),
             BorderBrush = PanelBorderBrush(),
@@ -1778,7 +1782,7 @@ public partial class MainWindow : Window
             var stack = new StackPanel { VerticalAlignment = VerticalAlignment.Top };
             if (items.Count == 0)
             {
-                stack.Children.Add(new TextBlock { Text = "还没有待办，在上面添加一条吧。", FontSize = 10, Foreground = SecondaryBrush(), Margin = new Thickness(4, 8, 4, 4), TextWrapping = TextWrapping.Wrap });
+                stack.Children.Add(new TextBlock { Text = "还没有待办，在上面添加一条吧。", FontFamily = new FontFamily("Microsoft YaHei UI"), FontSize = 12.5, Foreground = IsDark() ? new SolidColorBrush(Color.FromRgb(207, 210, 218)) : new SolidColorBrush(Color.FromRgb(78, 82, 91)), Margin = new Thickness(4, 9, 4, 4), TextWrapping = TextWrapping.Wrap });
             }
             foreach (var todo in items)
             {
@@ -1845,11 +1849,13 @@ public partial class MainWindow : Window
         var label = new TextBlock
         {
             Text = todo.Text,
-            FontSize = 11,
+            FontFamily = new FontFamily("Microsoft YaHei UI"),
+            FontSize = 14,
+            FontWeight = todo.Done ? FontWeights.Normal : FontWeights.Medium,
             Foreground = todo.Done ? SecondaryBrush() : PrimaryBrush(),
             VerticalAlignment = VerticalAlignment.Center,
             TextWrapping = TextWrapping.Wrap,
-            Margin = new Thickness(0, 0, 6, 0)
+            Margin = new Thickness(0, 0, 7, 0)
         };
         if (todo.Done)
             label.TextDecorations = TextDecorations.Strikethrough;
