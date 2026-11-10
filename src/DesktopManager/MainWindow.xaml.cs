@@ -1762,6 +1762,7 @@ public partial class MainWindow : Window
         };
         inputRow.Children.Add(input);
         inputRow.Children.Add(addButton);
+        Grid.SetColumn(addButton, 1);
         Grid.SetRow(inputRow, 1);
 
         var listHost = new Grid { Margin = new Thickness(0, 0, 0, 0) };
