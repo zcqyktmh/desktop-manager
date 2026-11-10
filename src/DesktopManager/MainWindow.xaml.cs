@@ -2304,9 +2304,24 @@ public partial class MainWindow : Window
 
     private void EmptyRecycleBin()
     {
-        try { Process.Start(new ProcessStartInfo("powershell.exe", "-NoProfile -Command \"Clear-RecycleBin -Force\"") { UseShellExecute = true, WindowStyle = ProcessWindowStyle.Hidden }); }
-        catch (Exception ex) { MessageBox.Show($"无法清空回收站：{ex.Message}", "桌面管家", MessageBoxButton.OK, MessageBoxImage.Error); }
+        try
+        {
+            var owner = new WindowInteropHelper(this).Handle;
+            var result = SHEmptyRecycleBin(owner, null, 0);
+            if (result < 0)
+            {
+                var error = Marshal.GetExceptionForHR(result)?.Message ?? $"错误代码 0x{result:X8}";
+                MessageBox.Show($"无法清空回收站：{error}", "桌面管家", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"无法清空回收站：{ex.Message}", "桌面管家", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
     }
+
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode, PreserveSig = true)]
+    private static extern int SHEmptyRecycleBin(IntPtr hwnd, string? pszRootPath, uint dwFlags);
 
     private static string ResolveShortcutTarget(string path)
     {
