@@ -29,6 +29,7 @@ public partial class MainWindow : Window
     private enum ResizeAnchor { TopLeft, TopRight, BottomLeft, BottomRight }
     private const string DesktopItemDragFormat = "DesktopManager.DesktopItemPath";
     private const string BookmarkDragFormat = "DesktopManager.BookmarkId";
+    private const string ClipboardOperationFormat = "DesktopManager.ClipboardOperation";
     private static readonly HttpClient FaviconHttpClient = new() { Timeout = TimeSpan.FromSeconds(5) };
     private static readonly ConcurrentDictionary<string, Task<BitmapSource?>> FaviconTasks = new(StringComparer.OrdinalIgnoreCase);
     private readonly AppDataStore _store = new();
@@ -1240,6 +1241,15 @@ public partial class MainWindow : Window
             menu.Items.Add(MenuItem("打开文件所在位置", (_, _) => OpenContainingFolder(item.Path)));
         if (item.IsVirtual && item.Name == "回收站")
             menu.Items.Add(MenuItem("清空回收站", (_, _) => EmptyRecycleBin()));
+        if (!item.IsVirtual)
+        {
+            menu.Items.Add(new Separator());
+            if (!item.IsTaskbarShortcut)
+                menu.Items.Add(MenuItem("重命名", (_, _) => RenameDesktopItem(item)));
+            menu.Items.Add(MenuItem("复制", (_, _) => CopyOrCutDesktopItems(item, cut: false)));
+            if (!item.IsTaskbarShortcut)
+                menu.Items.Add(MenuItem("剪切", (_, _) => CopyOrCutDesktopItems(item, cut: true)));
+        }
         if (InstalledApplicationUninstaller.IsApplicationShortcut(item))
         {
             menu.Items.Add(new Separator());
@@ -1254,7 +1264,7 @@ public partial class MainWindow : Window
                 var move = new MenuItem { Header = group, IsCheckable = true, IsChecked = string.Equals(group, item.Group, StringComparison.CurrentCultureIgnoreCase) };
                 move.Click += (_, _) =>
                 {
-                    foreach (var selected in SelectedItems()) MoveDesktopItem(selected, destination);
+                    foreach (var selected in GetContextTargets(item).Where(target => !target.IsVirtual)) MoveDesktopItem(selected, destination);
                     ClearSelection();
                 };
                 moveMenu.Items.Add(move);
@@ -1264,7 +1274,7 @@ public partial class MainWindow : Window
             menu.Items.Add(MenuItem("粘贴到此分组", (_, _) => PasteIntoGroup(Clipboard.GetDataObject(), item.Group)));
             menu.Items.Add(MenuItem("从分组移除", (_, _) =>
             {
-                foreach (var selected in SelectedItems()) MoveDesktopItem(selected, "未分组");
+                foreach (var selected in GetContextTargets(item).Where(target => !target.IsVirtual)) MoveDesktopItem(selected, "未分组");
                 ClearSelection();
             }));
             menu.Items.Add(new Separator());
@@ -1273,10 +1283,7 @@ public partial class MainWindow : Window
             else
                 menu.Items.Add(MenuItem("删除", (_, _) =>
                 {
-                    var targets = SelectedItems();
-                    if (!targets.Any(t => string.Equals(t.Path, item.Path, StringComparison.OrdinalIgnoreCase)))
-                        targets = new[] { item };
-                    DeleteDesktopItems(targets);
+                    DeleteDesktopItems(GetContextTargets(item).Where(target => !target.IsVirtual).ToArray());
                 }));
         }
         tile.ContextMenu = menu;
@@ -1344,6 +1351,81 @@ public partial class MainWindow : Window
         return items.Where(item => _selectedPaths.Contains(DesktopItemDiscovery.Normalize(item.Path))).ToArray();
     }
 
+    private IReadOnlyList<DesktopItem> GetContextTargets(DesktopItem clickedItem)
+    {
+        var selected = SelectedItems();
+        return selected.Any(target => string.Equals(target.Path, clickedItem.Path, StringComparison.OrdinalIgnoreCase))
+            ? selected
+            : new[] { clickedItem };
+    }
+
+    private void CopyOrCutDesktopItems(DesktopItem clickedItem, bool cut)
+    {
+        var targets = GetContextTargets(clickedItem)
+            .Where(target => !target.IsVirtual && (!cut || !target.IsTaskbarShortcut))
+            .ToArray();
+        if (targets.Length == 0) return;
+
+        try
+        {
+            var data = new DataObject();
+            data.SetData(DataFormats.FileDrop, targets.Select(target => target.Path).ToArray());
+            data.SetData(ClipboardOperationFormat, cut ? "Cut" : "Copy");
+            var effect = cut ? DragDropEffects.Move : DragDropEffects.Copy;
+            using var preferredEffect = new MemoryStream(BitConverter.GetBytes((int)effect));
+            data.SetData("Preferred DropEffect", preferredEffect);
+            Clipboard.SetDataObject(data, true);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"无法{(cut ? "剪切" : "复制")}所选项目：{ex.Message}", "桌面管家", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void RenameDesktopItem(DesktopItem item)
+    {
+        if (item.IsVirtual || item.IsTaskbarShortcut) return;
+        if (!File.Exists(item.Path) && !Directory.Exists(item.Path))
+        {
+            MessageBox.Show("这个项目已经不存在了。刷新桌面后会自动移除。", "重命名", MessageBoxButton.OK, MessageBoxImage.Information);
+            RenderDesktop();
+            return;
+        }
+
+        var originalName = Directory.Exists(item.Path) ? Path.GetFileName(item.Path) : Path.GetFileNameWithoutExtension(item.Path);
+        var newName = PromptForText("重命名", "名称", originalName)?.Trim();
+        if (string.IsNullOrWhiteSpace(newName) || string.Equals(newName, originalName, StringComparison.Ordinal)) return;
+        if (newName is "." or ".." || Path.GetFileName(newName) != newName || newName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+        {
+            MessageBox.Show("名称包含无效字符。", "重命名", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        var extension = Directory.Exists(item.Path) ? "" : Path.GetExtension(item.Path);
+        var destination = Path.Combine(Path.GetDirectoryName(item.Path)!, newName + extension);
+        if (File.Exists(destination) || Directory.Exists(destination))
+        {
+            MessageBox.Show("该位置已经存在同名项目。", "重命名", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        try
+        {
+            if (Directory.Exists(item.Path)) Directory.Move(item.Path, destination);
+            else File.Move(item.Path, destination);
+
+            var oldKey = DesktopItemDiscovery.Normalize(item.Path);
+            if (_state.DesktopAssignments.Remove(oldKey, out var assignedGroup))
+                _state.DesktopAssignments[DesktopItemDiscovery.Normalize(destination)] = assignedGroup;
+            ClearSelection();
+            SaveAndRender();
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"无法重命名“{item.Name}”：{ex.Message}", "重命名失败", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
     private void OpenSelectedOr(DesktopItem item)
     {
         var selected = SelectedItems();
@@ -1369,6 +1451,7 @@ public partial class MainWindow : Window
 
     private void DeleteDesktopItems(IReadOnlyList<DesktopItem> targets)
     {
+        targets = targets.Where(target => !target.IsVirtual).ToArray();
         if (targets.Count == 0) return;
         var first = targets[0];
         if (!File.Exists(first.Path) && !Directory.Exists(first.Path))
@@ -1425,6 +1508,8 @@ public partial class MainWindow : Window
     private bool PasteIntoGroup(IDataObject? data, string group)
     {
         if (data is null) return false;
+        var cut = IsCutClipboardData(data);
+        var clipboardImageSavedOnDesktop = false;
         var paths = new List<string>();
         if (data.GetDataPresent(DataFormats.FileDrop) && data.GetData(DataFormats.FileDrop) is string[] dropped)
             paths.AddRange(dropped.Where(path => File.Exists(path) || Directory.Exists(path)));
@@ -1432,7 +1517,11 @@ public partial class MainWindow : Window
         if (paths.Count == 0 && data.GetDataPresent(DataFormats.Bitmap) && data.GetData(DataFormats.Bitmap) is BitmapSource bitmap)
         {
             var imagePath = SaveClipboardImage(bitmap);
-            if (imagePath is not null) paths.Add(imagePath);
+            if (imagePath is not null)
+            {
+                paths.Add(imagePath);
+                clipboardImageSavedOnDesktop = true;
+            }
         }
         if (paths.Count == 0) return false;
 
@@ -1441,17 +1530,51 @@ public partial class MainWindow : Window
         {
             try
             {
-                var desktopPath = PlaceFileOnDesktop(path);
+                var desktopPath = clipboardImageSavedOnDesktop
+                    ? path
+                    : PlaceFileOnDesktop(path, copy: !cut);
                 if (desktopPath is null) continue;
                 _state.DesktopAssignments[DesktopItemDiscovery.Normalize(desktopPath)] = group;
                 added++;
             }
-            catch (Exception) { }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"无法粘贴“{Path.GetFileName(path)}”：{ex.Message}", "粘贴失败", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
         }
         if (added == 0) return false;
+        if (cut)
+        {
+            try { Clipboard.Clear(); }
+            catch { }
+        }
         GrowGroupToFitItems(group);
         SaveAndRender();
         return true;
+    }
+
+    private static bool IsCutClipboardData(IDataObject data)
+    {
+        try
+        {
+            if (data.GetDataPresent(ClipboardOperationFormat))
+                return string.Equals(data.GetData(ClipboardOperationFormat) as string, "Cut", StringComparison.OrdinalIgnoreCase);
+
+            if (!data.GetDataPresent("Preferred DropEffect")) return false;
+            var value = data.GetData("Preferred DropEffect");
+            var bytes = value switch
+            {
+                byte[] array => array,
+                MemoryStream stream => stream.ToArray(),
+                int effect => BitConverter.GetBytes(effect),
+                _ => null
+            };
+            return bytes is { Length: >= 4 } && (BitConverter.ToInt32(bytes, 0) & (int)DragDropEffects.Move) != 0;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private void GrowGroupToFitItems(string group)
@@ -1468,27 +1591,51 @@ public partial class MainWindow : Window
         layout.Left = Math.Clamp(layout.Left, 0, Math.Max(0, width - layout.Width));
     }
 
-    private string? PlaceFileOnDesktop(string path)
+    private string? PlaceFileOnDesktop(string path, bool copy)
     {
         var desktopFolder = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
         if (string.IsNullOrWhiteSpace(desktopFolder) || !Directory.Exists(desktopFolder)) return path;
-        if (string.Equals(Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar), Path.GetFullPath(desktopFolder).TrimEnd(Path.DirectorySeparatorChar), StringComparison.OrdinalIgnoreCase))
+        var fullPath = Path.GetFullPath(path);
+        var commonDesktop = Environment.GetFolderPath(Environment.SpecialFolder.CommonDesktopDirectory);
+        if (string.Equals(
+                fullPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+                Path.GetFullPath(desktopFolder).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+                StringComparison.OrdinalIgnoreCase))
             return null;
-        if (path.StartsWith(desktopFolder.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+        if (!copy && (IsPathInside(fullPath, desktopFolder) || IsPathInside(fullPath, commonDesktop)))
             return path;
         try
         {
-            var destination = Path.Combine(desktopFolder, Path.GetFileName(path));
+            var destination = Path.Combine(desktopFolder, Path.GetFileName(fullPath));
             destination = UniqueDesktopPath(destination);
-            if (Directory.Exists(path)) Directory.CreateDirectory(destination);
-            else File.Copy(path, destination, false);
+            if (Directory.Exists(fullPath))
+            {
+                if (copy) FileSystem.CopyDirectory(fullPath, destination, false);
+                else FileSystem.MoveDirectory(fullPath, destination);
+            }
+            else if (copy)
+            {
+                FileSystem.CopyFile(fullPath, destination, false);
+            }
+            else
+            {
+                FileSystem.MoveFile(fullPath, destination);
+            }
             return destination;
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"无法把“{Path.GetFileName(path)}”放到桌面：{ex.Message}", "桌面管家", MessageBoxButton.OK, MessageBoxImage.Warning);
-            return null;
+            throw new IOException($"无法把“{Path.GetFileName(fullPath)}”放到桌面：{ex.Message}", ex);
         }
+    }
+
+    private static bool IsPathInside(string path, string directory)
+    {
+        if (string.IsNullOrWhiteSpace(directory)) return false;
+        var fullPath = Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var fullDirectory = Path.GetFullPath(directory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        return fullPath.StartsWith(fullDirectory + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
+            || fullPath.StartsWith(fullDirectory + Path.AltDirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
     }
 
     private static string UniqueDesktopPath(string path)
